@@ -2,25 +2,103 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Мои проекты</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Holdrunner_apps</title>
     <style>
-        body { font-family: sans-serif; padding: 50px; line-height: 1.6; }
-        h1 { color: #333; }
-        ul { list-style: none; padding: 0; }
-        li { margin-bottom: 10px; }
-        a { text-decoration: none; color: #0366d6; font-size: 18px; }
-        a:hover { text-decoration: underline; }
+        :root {
+            --bg-color: #1a1a1a;
+            --card-bg: #2d2d2d;
+            --text-color: #e0e0e0;
+            --accent-color: #007acc;
+            --hover-color: #00a2ff;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 30px;
+            letter-spacing: 1px;
+            color: var(--text-color);
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 10px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        li {
+            margin-bottom: 15px;
+            transition: transform 0.2s;
+        }
+
+        li:hover {
+            transform: translateX(10px);
+        }
+
+        a {
+            display: block;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            text-decoration: none;
+            padding: 15px 20px;
+            border-radius: 8px;
+            border-left: 5px solid var(--accent-color);
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        a:hover {
+            background-color: #3d3d3d;
+            border-left-color: var(--hover-color);
+            color: var(--hover-color);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.5);
+        }
+
+        .footer {
+            margin-top: 40px;
+            font-size: 0.8rem;
+            opacity: 0.6;
+        }
     </style>
 </head>
 <body>
-    <h1>Список моих HTML-страниц</h1>
-    <ul>
-        <li><a href="./Gear_Simulator/">Gear Simulator</a></li>
-        <li><a href="./Ohm_law(Calculator)/">Ohm Law Calculator</a></li>
-        <li><a href="./STL_inspector/">STL Inspector</a></li>
-        <li><a href="./Solar_Panel(lost)/">Solar Panel (lost)</a></li>
-        <li><a href="./Vectorizer_V2(UA)/">Vectorizer V2 (UA)</a></li>
-        <li><a href="./Wing_Sim(V2.3)/">Wing Sim (V2.3)</a></li>
-    </ul>
+
+    <h1>Holdrunner_apps</h1>
+
+    <div class="container">
+        <ul>
+            <li><a href="./Gear_Simulator/">⚙️ Gear Simulator</a></li>
+            <li><a href="./Ohm_law(Calculator)/">⚡ Ohm Law Calculator</a></li>
+            <li><a href="./STL_inspector/">🔍 STL Inspector</a></li>
+            <li><a href="./Solar_Panel(lost)/">☀️ Solar Panel (lost)</a></li>
+            <li><a href="./Vectorizer_V2(UA)/">🖼️ Vectorizer V2 (UA)</a></li>
+            <li><a href="./Wing_Sim(V2.3)/">✈️ Wing Sim (V2.3)</a></li>
+        </ul>
+    </div>
+
+    <div class="footer">
+        © 2024 Holdrunner | GitHub Pages
+    </div>
+
 </body>
 </html>

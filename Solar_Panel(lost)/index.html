@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Калькулятор мощности солнечной панели</title>
+    <style>
+        /* =========================================
+           CSS СТИЛИ И ПЕРЕМЕННЫЕ
+        ========================================= */
+        :root {
+            --bg-main: #171717; /* neutral-900 */
+            --bg-panel: #262626; /* neutral-800 */
+            --bg-panel-light: rgba(64, 64, 64, 0.3); /* neutral-700/30 */
+            --bg-svg: #0a0a0a;
+            --border-color: #404040; /* neutral-700 */
+            
+            --text-main: #f5f5f5; /* neutral-100 */
+            --text-muted: #a3a3a3; /* neutral-400 */
+            --text-dim: #737373; /* neutral-500 */
+            
+            --accent-amber: #f59e0b;
+            --accent-amber-light: #fbbf24;
+            --accent-blue: #3b82f6;
+            --accent-blue-light: #60a5fa;
+            --accent-red: #ef4444;
+            --accent-red-light: #f87171;
+            --accent-emerald: #10b981;
+            --accent-emerald-light: #34d399;
+            
+            --font-main: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            font-family: var(--font-main);
+            line-height: 1.5;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+
+        /* Layout */
+        .container {
+            max-width: 1152px;
+            margin: 0 auto;
+            padding: 1rem 0;
+        }
+
+        header { margin-bottom: 2rem; }
+        header h1 { color: var(--accent-amber-light); font-size: 1.875rem; margin-bottom: 0.5rem; }
+        header p { color: var(--text-muted); }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (min-width: 1024px) {
+            .grid { grid-template-columns: 4fr 8fr; }
+        }
+
+        /* Panels & Cards */
+        .panel {
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        }
+
+        .panel-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        /* Controls */
+        .control-group { margin-bottom: 1.25rem; }
+        .control-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+        }
+        .control-header label { color: #d4d4d4; font-weight: 500; }
+        .control-header span { font-weight: 700; color: var(--accent-amber-light); }
+        
+        /* Custom range sliders */
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 0.5rem;
+            background: var(--border-color);
+            border-radius: 0.25rem;
+            outline: none;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 1.2rem;
+            height: 1.2rem;
+            border-radius: 50%;
+            background: var(--accent-amber);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.1); }
+        input[type="range"].slider-blue::-webkit-slider-thumb { background: var(--accent-blue); }
+        input[type="range"].slider-red::-webkit-slider-thumb { background: var(--accent-red); }
+        input[type="range"].slider-gray::-webkit-slider-thumb { background: #9ca3af; }
+        
+        .val-blue { color: var(--accent-blue-light) !important; }
+        .val-red { color: var(--accent-red-light) !important; }
+        .val-gray { color: #d1d5db !important; }
+
+        /* Highlighted Box */
+        .highlight-box {
+            background-color: rgba(23, 23, 23, 0.5);
+            border: 1px solid rgba(64, 64, 64, 0.5);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-bottom: 1.25rem;
+        }
+        .highlight-box .hint { font-size: 0.75rem; color: var(--text-dim); margin-top: 0.5rem; }
+
+        /* Button Group */
+        .btn-group {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .btn {
+            flex: 1;
+            padding: 0.5rem;
+            background-color: var(--border-color);
+            color: #d4d4d4;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn:hover { background-color: #525252; }
+        .btn.active {
+            background-color: var(--accent-amber);
+            color: #171717;
+        }
+
+        /* Accordion (Formulas) */
+        .accordion-btn {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: none;
+            border: none;
+            color: #d4d4d4;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+            margin-top: 1rem;
+        }
+        .accordion-btn:hover { color: var(--accent-amber-light); }
+        .accordion-content {
+            display: none;
+            margin-top: 1rem;
+            padding: 1rem;
+            background-color: rgba(23, 23, 23, 0.6);
+            border: 1px solid rgba(64, 64, 64, 0.5);
+            border-radius: 0.75rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .accordion-content.open { display: block; }
+        .accordion-content code { color: #d4d4d4; font-family: monospace; }
+        .accordion-content .f-title { font-weight: bold; color: var(--accent-amber); display: block; margin-top: 0.5rem;}
+        .accordion-content .f-title:first-child { margin-top: 0; }
+        .accordion-content .f-desc { font-size: 0.65rem; color: var(--text-dim); display: block; margin-top: 0.2rem;}
+
+        /* Visuals Section */
+        .visuals-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .svg-wrapper {
+            background-color: var(--bg-svg);
+            border: 1px solid #262626;
+            border-radius: 1rem;
+            overflow: hidden;
+            position: relative;
+            height: 400px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Final Result Overlay (Glassmorphism) */
+        .result-overlay {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            background-color: rgba(23, 23, 23, 0.8);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid var(--border-color);
+            padding: 1rem;
+            border-radius: 0.75rem;
+        }
+        .result-overlay .r-title { font-size: 0.875rem; color: var(--text-muted); }
+        .result-overlay .r-value { font-size: 2.25rem; font-weight: 900; color: var(--accent-emerald-light); line-height: 1.2; }
+        .result-overlay .r-unit { font-size: 1.125rem; color: var(--accent-emerald); }
+        .result-overlay .r-efficiency { font-size: 0.75rem; color: var(--text-dim); margin-top: 0.25rem; }
+
+        /* Waterfall Steps */
+        .waterfall-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .loss-step {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            background-color: var(--bg-panel-light);
+        }
+        .loss-step.final {
+            background-color: #171717;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .step-left { display: flex; align-items: center; gap: 0.75rem; }
+        .step-dot { width: 0.75rem; height: 0.75rem; border-radius: 50%; }
+        .step-name { font-weight: 600; color: #e5e5e5; font-size: 0.875rem;}
+        .step-desc { font-size: 0.75rem; color: var(--text-dim); }
+        .final .step-name { color: var(--accent-emerald-light); }
+        .step-right { text-align: right; }
+        .step-val { font-family: monospace; font-weight: 700; color: #d4d4d4; font-size: 1rem;}
+        .final .step-val { color: var(--accent-emerald-light); font-size: 1.25rem; }
+        .step-loss { font-size: 0.75rem; font-family: monospace; color: var(--accent-red-light); }
+        .step-gain { font-size: 0.75rem; font-family: monospace; color: var(--accent-emerald-light); }
+
+        /* SVG Animations */
+        @keyframes dash {
+            to { stroke-dashoffset: -15; }
+        }
+        .animate-dash { animation: dash 1s linear infinite; }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Калькулятор мощности солнечной панели</h1>
+        <p>Расчет эффективности с учетом преломления и точного угла наклона</p>
+    </header>
+
+    <div class="grid">
+        <!-- Левая колонка: Управление -->
+        <aside class="panel">
+            <h2 class="panel-title">Параметры среды</h2>
+            
+            <div class="control-group">
+                <div class="control-header">
+                    <label>Облачность (Погода)</label>
+                    <span id="val-cloudiness" class="val-gray">0% (Ясно)</span>
+                </div>
+                <input type="range" id="inp-cloudiness" class="slider-gray" min="0" max="100" step="1" value="0">
+            </div>
+
+            <div class="control-group">
+                <div class="control-header">
+                    <label>Высота солнца над горизонтом</label>
+                    <span id="val-sunElevation">50°</span>
+                </div>
+                <input type="range" id="inp-sunElevation" min="0" max="89" step="1" value="50">
+            </div>
+
+            <div class="highlight-box">
+                <div class="control-group" style="margin-bottom:0;">
+                    <div class="control-header">
+                        <label>Наклон панели (от пола)</label>
+                        <span id="val-panelTilt" class="val-blue">45°</span>
+                    </div>
+                    <input type="range" id="inp-panelTilt" class="slider-blue" min="0" max="90" step="1" value="45">
+                    <div class="hint">0° — лежит плоско, 90° — стоит вертикально</div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <div class="control-header">
+                    <label>Номинал панели (STC)</label>
+                    <span id="val-panelNominal">100 Вт</span>
+                </div>
+                <input type="range" id="inp-panelNominal" min="10" max="300" step="10" value="100">
+            </div>
+
+            <div class="control-group" style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                <label style="font-size: 0.875rem; color: #d4d4d4; font-weight: 500;">Количество стекол окна</label>
+                <div class="btn-group" id="btn-group-glass">
+                    <button class="btn active" data-val="1">1 Стекло</button>
+                    <button class="btn" data-val="2">2 Стекла</button>
+                    <button class="btn" data-val="3">3 Стекла</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <div class="control-header">
+                    <label>Толщина одного стекла</label>
+                    <span id="val-glassThickness">3 мм</span>
+                </div>
+                <input type="range" id="inp-glassThickness" min="2" max="10" step="1" value="3">
+            </div>
+
+            <div class="control-group">
+                <div class="control-header">
+                    <label>Степень загрязнения (Пыль)</label>
+                    <span id="val-dust">3%</span>
+                </div>
+                <input type="range" id="inp-dust" min="0" max="30" step="1" value="3">
+            </div>
+
+            <div class="control-group">
+                <div class="control-header">
+                    <label>Температура панели</label>
+                    <span id="val-panelTemp" class="val-red">55 °C</span>
+                </div>
+                <input type="range" id="inp-panelTemp" class="slider-red" min="-10" max="80" step="1" value="55">
+            </div>
+
+            <button class="accordion-btn" id="btn-formulas">
+                <span>📚 Используемые формулы</span>
+                <span id="formulas-arrow">▼</span>
+            </button>
+            <div class="accordion-content" id="formulas-content">
+                <span class="f-title">0. Погодные условия:</span>
+                <code>P_in = P_STC · (1 - 0.8 · C/100)</code>
+                <span class="f-desc">C — процент облачности. Густые облака могут блокировать до 80% излучения до попадания на окно.</span>
+
+                <span class="f-title">1. Преломление (Закон Снеллиуса):</span>
+                <code>n₁ · sin(θ₁) = n₂ · sin(θ₂)</code>
+                
+                <span class="f-title">2. Отражение (Формулы Френеля):</span>
+                <code>T_refl = (1 - R_avg)^(2 · N_стекол)</code>
+                <span class="f-desc">R_avg — средний коэффициент отражения для s- и p-поляризаций.</span>
+                
+                <span class="f-title">3. Поглощение (Бугера-Ламберта-Бера):</span>
+                <code>T_abs = e^(-k · L)</code>
+                <span class="f-desc">k = 0.009 (экстинкция), L — реальный путь луча в стекле.</span>
+                
+                <span class="f-title">4. Ориентация панели (Закон Ламберта):</span>
+                <code>P = P_0 · cos(θ_inc)</code>
+                <span class="f-desc">θ_inc — угол между лучом и нормалью к панели.</span>
+                
+                <span class="f-title">5. Термодинамика (Нагрев):</span>
+                <code>T_temp = 1 + β · (T_panel - 25°C)</code>
+                <span class="f-desc">β = -0.004 (-0.4% потери мощности за каждый градус свыше 25°C).</span>
+            </div>
+        </aside>
+
+        <!-- Правая колонка: Визуализация -->
+        <main class="visuals-container">
+            <div class="svg-wrapper">
+                <div id="svg-container" style="width: 100%; height: 100%;"></div>
+                
+                <!-- Оверлей результата -->
+                <div class="result-overlay">
+                    <div class="r-title">Реальная выработка</div>
+                    <div class="r-value"><span id="out-finalPower">0.0</span> <span class="r-unit">Вт</span></div>
+                    <div class="r-efficiency" id="out-efficiency">КПД системы: 0.0%</div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3 class="panel-title">Физика потерь (Каскад)</h3>
+                <div class="waterfall-list" id="waterfall-container">
+                    <!-- Заполняется через JS -->
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- =========================================
+     JAVASCRIPT ЛОГИКА
+========================================= -->
+<script>
+    // 1. Состояние приложения (State)
+    const state = {
+        cloudiness: 0,
+        sunElevation: 50,
+        panelNominal: 100,
+        glassThickness: 3,
+        glassCount: 1,
+        dust: 3,
+        panelTemp: 55,
+        panelTilt: 45
+    };
+
+    // Физические константы
+    const constants = {
+        n1: 1.0,        // Показатель преломления воздуха
+        n2: 1.52,       // Показатель преломления стекла
+        k: 0.009,       // Коэффициент экстинкции
+        tempCoef: -0.004 // Температурный коэффициент (-0.4% / °C)
+    };
+
+    // 2. DOM Элементы
+    const inputs = {
+        cloudiness: document.getElementById('inp-cloudiness'),
+        sunElevation: document.getElementById('inp-sunElevation'),
+        panelTilt: document.getElementById('inp-panelTilt'),
+        panelNominal: document.getElementById('inp-panelNominal'),
+        glassThickness: document.getElementById('inp-glassThickness'),
+        dust: document.getElementById('inp-dust'),
+        panelTemp: document.getElementById('inp-panelTemp')
+    };
+
+    const displays = {
+        cloudiness: document.getElementById('val-cloudiness'),
+        sunElevation: document.getElementById('val-sunElevation'),
+        panelTilt: document.getElementById('val-panelTilt'),
+        panelNominal: document.getElementById('val-panelNominal'),
+        glassThickness: document.getElementById('val-glassThickness'),
+        dust: document.getElementById('val-dust'),
+        panelTemp: document.getElementById('val-panelTemp')
+    };
+
+    const glassButtons = document.querySelectorAll('#btn-group-glass .btn');
+    const svgContainer = document.getElementById('svg-container');
+    const waterfallContainer = document.getElementById('waterfall-container');
+    const outFinalPower = document.getElementById('out-finalPower');
+    const outEfficiency = document.getElementById('out-efficiency');
+
+    // 3. Вычислительное ядро (Физика)
+    function calculatePhysics() {
+        const { cloudiness, sunElevation, panelNominal, glassThickness, glassCount, dust, panelTilt, panelTemp } = state;
+        const { n1, n2, k, tempCoef } = constants;
+        const rad = Math.PI / 180;
+
+        // 0. Потери на погодные условия (до окна)
+        const T_weather = 1 - 0.8 * (cloudiness / 100);
+        const powerAfterWeather = panelNominal * T_weather;
+
+        // 1. Угол падения (от нормали к окну)
+        let theta_i = sunElevation * rad;
+        if (sunElevation === 90) theta_i = 89.9 * rad; // Избегаем деления на 0
+
+        // 2. Угол преломления (Закон Снеллиуса)
+        let theta_t = Math.asin((n1 / n2) * Math.sin(theta_i));
+
+        // 3. Отражение (Формулы Френеля)
+        let R;
+        if (sunElevation === 0) {
+            R = Math.pow((n1 - n2) / (n1 + n2), 2);
+        } else {
+            let R_s = Math.pow(Math.abs((n1 * Math.cos(theta_i) - n2 * Math.cos(theta_t)) / (n1 * Math.cos(theta_i) + n2 * Math.cos(theta_t))), 2);
+            let R_p = Math.pow(Math.abs((n1 * Math.cos(theta_t) - n2 * Math.cos(theta_i)) / (n1 * Math.cos(theta_t) + n2 * Math.cos(theta_i))), 2);
+            R = (R_s + R_p) / 2;
+        }
+
+        const interfaces = glassCount * 2;
+        const T_reflection = Math.pow(1 - R, interfaces);
+        const powerAfterReflection = powerAfterWeather * T_reflection;
+
+        // 4. Поглощение в толще
+        const pathLength = (glassThickness * glassCount) / Math.cos(theta_t);
+        const T_absorption = Math.exp(-k * pathLength);
+        const powerAfterAbsorption = powerAfterReflection * T_absorption;
+
+        // 5. Потери на пыль
+        const T_dust = 1 - (dust / 100);
+        const powerAfterDust = powerAfterAbsorption * T_dust;
+
+        // 6. Оптические потери наклона (Косинус-фактор)
+        const T_tilt = Math.max(0, Math.sin((panelTilt + (theta_t / rad)) * rad));
+        const powerAfterTilt = powerAfterDust * T_tilt;
+
+        // 7. Температурные потери
+        const tempDiff = panelTemp - 25; 
+        const T_temp = Math.max(0, 1 + (tempCoef * tempDiff));
+        
+        // Итого
+        const finalPower = Math.max(0, powerAfterTilt * T_temp);
+
+        return {
+            powerAfterWeather,
+            powerAfterReflection,
+            powerAfterAbsorption,
+            powerAfterDust,
+            powerAfterTilt,
+            finalPower,
+            theta_t
+        };
+    }
+
+    // 4. Генерация интерфейса и графики
+    function render() {
+        // Текстовое описание погоды
+        let weatherText = "Ясно";
+        if (state.cloudiness > 20) weatherText = "Переменная";
+        if (state.cloudiness > 60) weatherText = "Пасмурно";
+        if (state.cloudiness > 80) weatherText = "Дождь";
+
+        // Обновляем текст значений на слайдерах
+        displays.cloudiness.textContent = `${state.cloudiness}% (${weatherText})`;
+        displays.sunElevation.textContent = `${state.sunElevation}°`;
+        displays.panelTilt.textContent = `${state.panelTilt}°`;
+        displays.panelNominal.textContent = `${state.panelNominal} Вт`;
+        displays.glassThickness.textContent = `${state.glassThickness} мм`;
+        displays.dust.textContent = `${state.dust}%`;
+        displays.panelTemp.textContent = `${state.panelTemp} °C`;
+
+        // Считаем физику
+        const res = calculatePhysics();
+
+        // Обновляем финальный результат
+        outFinalPower.textContent = res.finalPower.toFixed(1);
+        outEfficiency.textContent = `КПД системы: ${((res.finalPower / state.panelNominal) * 100).toFixed(1)}%`;
+
+        // Отрисовка SVG
+        renderSVG(res);
+
+        // Отрисовка Каскада потерь
+        renderWaterfall(res);
+    }
+
+    function renderSVG(res) {
+        const rad = Math.PI / 180;
+        
+        // Координаты и константы для SVG
+        const windowRightX = 300; 
+        const glassWidth = state.glassThickness * 2;
+        const gap = 5;
+        const windowLeftX = windowRightX - (state.glassCount * glassWidth) - ((state.glassCount - 1) * gap);
+        
+        const pivotX = windowLeftX - 25;
+        const panelCx = pivotX - 60 * Math.cos(state.panelTilt * rad);
+        const panelCy = 350 - 60 * Math.sin(state.panelTilt * rad);
+
+        const refractionAngle = res.theta_t;
+        const hitY_inner = panelCy - (windowLeftX - panelCx) * Math.tan(refractionAngle);
+        
+        const sunRadius = 200;
+        const sunX = windowRightX + sunRadius * Math.cos(state.sunElevation * rad);
+        const sunY = hitY_inner - sunRadius * Math.sin(state.sunElevation * rad);
+
+        // Толщина преломленного луча зависит от сохранившейся энергии
+        const innerRayWidth = 15 * (res.powerAfterDust / state.panelNominal);
+
+        // Визуальные эффекты погоды
+        const sunOpacity = 1 - (state.cloudiness / 100) * 0.8;
+        const cloudOpacity = state.cloudiness / 100;
+        const rainSVG = state.cloudiness > 80 ? `
+            <line x1="${sunX - 40}" y1="${sunY + 20}" x2="${sunX - 50}" y2="${sunY + 40}" stroke="#60a5fa" stroke-width="2" />
+            <line x1="${sunX - 10}" y1="${sunY + 30}" x2="${sunX - 20}" y2="${sunY + 50}" stroke="#60a5fa" stroke-width="2" />
+            <line x1="${sunX + 20}" y1="${sunY + 40}" x2="${sunX + 10}" y2="${sunY + 60}" stroke="#60a5fa" stroke-width="2" />
+            <line x1="${sunX + 50}" y1="${sunY + 35}" x2="${sunX + 40}" y2="${sunY + 55}" stroke="#60a5fa" stroke-width="2" />
+        ` : '';
+
+        // Генерация прямоугольников стекол
+        let glassesSVG = '';
+        for(let i = 0; i < state.glassCount; i++) {
+            const x = windowRightX - (i + 1) * glassWidth - i * gap;
+            glassesSVG += `<rect x="${x}" y="50" width="${glassWidth}" height="300" fill="#737373" opacity="0.6" rx="2" stroke="#a3a3a3" stroke-width="1" />`;
+        }
+
+        // Генерация ячеек панели
+        let cellsSVG = '';
+        for(let i=0; i<5; i++) {
+            cellsSVG += `<line x1="${-20 * (i + 1)}" y1="-6" x2="${-20 * (i + 1)}" y2="6" stroke="#3b82f6" stroke-width="1" />`;
+        }
+
+        const svgContent = `
+            <svg width="100%" height="100%" viewBox="0 0 600 400" preserveAspectRatio="xMidYMid meet">
+                <defs>
+                    <linearGradient id="sunRay" x1="1" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#fbbf24" stop-opacity="${0.8 * sunOpacity}" />
+                        <stop offset="100%" stop-color="#fbbf24" stop-opacity="${0.3 * sunOpacity}" />
+                    </linearGradient>
+                    <filter id="glow">
+                        <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                        <feMerge>
+                            <feMergeNode in="coloredBlur"/>
+                            <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                    </filter>
+                </defs>
+
+                <!-- Подписи -->
+                <text x="${windowRightX + 40}" y="40" fill="#737373" font-size="20" font-weight="bold">Улица</text>
+                <text x="${windowLeftX - 120}" y="40" fill="#737373" font-size="20" font-weight="bold">Комната</text>
+
+                <!-- Пол -->
+                <line x1="0" y1="350" x2="600" y2="350" stroke="#333" stroke-width="2" />
+
+                <!-- Солнце -->
+                <circle cx="${sunX}" cy="${sunY}" r="20" fill="#fbbf24" opacity="${sunOpacity}" filter="url(#glow)" />
+                <circle cx="${sunX}" cy="${sunY}" r="25" fill="#fbbf24" opacity="${0.3 * sunOpacity}" filter="url(#glow)" />
+                
+                <!-- Облака и дождь -->
+                <g opacity="${cloudOpacity}">
+                    <path d="M ${sunX - 40} ${sunY + 10} Q ${sunX - 60} ${sunY + 10} ${sunX - 60} ${sunY - 10} Q ${sunX - 60} ${sunY - 30} ${sunX - 40} ${sunY - 30} Q ${sunX - 20} ${sunY - 50} ${sunX + 10} ${sunY - 30} Q ${sunX + 40} ${sunY - 30} ${sunX + 40} ${sunY - 10} Q ${sunX + 40} ${sunY + 10} ${sunX + 20} ${sunY + 10} Z" fill="#9ca3af" opacity="0.8" />
+                    <path d="M ${sunX + 20} ${sunY + 30} Q ${sunX} ${sunY + 30} ${sunX} ${sunY + 15} Q ${sunX} ${sunY} ${sunX + 20} ${sunY} Q ${sunX + 35} ${sunY - 15} ${sunX + 60} ${sunY} Q ${sunX + 80} ${sunY} ${sunX + 80} ${sunY + 15} Q ${sunX + 80} ${sunY + 30} ${sunX + 60} ${sunY + 30} Z" fill="#6b7280" opacity="0.9" />
+                    ${rainSVG}
+                </g>
+
+                <!-- Падающий луч -->
+                <line 
+                    x1="${sunX}" y1="${sunY}" x2="${windowRightX}" y2="${hitY_inner}" 
+                    stroke="url(#sunRay)" stroke-width="15" 
+                    stroke-dasharray="10 5" class="animate-dash"
+                />
+
+                <!-- Стекла -->
+                <g>${glassesSVG}</g>
+
+                <!-- Преломленный луч -->
+                <line 
+                    x1="${windowLeftX}" y1="${hitY_inner}" x2="${panelCx}" y2="${panelCy}" 
+                    stroke="#fbbf24" stroke-width="${Math.max(1, innerRayWidth)}" opacity="0.8"
+                />
+
+                <!-- Солнечная панель -->
+                <g transform="translate(${pivotX}, 350) rotate(${state.panelTilt})">
+                    <rect x="-120" y="-6" width="120" height="12" fill="#1e3a8a" stroke="#3b82f6" stroke-width="2" rx="2"/>
+                    ${cellsSVG}
+                    <text x="-60" y="-12" fill="#93c5fd" font-size="11" text-anchor="middle" font-weight="bold">ПАНЕЛЬ</text>
+                    <circle cx="0" cy="0" r="4" fill="#ef4444" />
+                </g>
+            </svg>
+        `;
+        svgContainer.innerHTML = svgContent;
+    }
+
+    function renderWaterfall(res) {
+        const steps = [
+            { name: "Номинал (STC)", val: state.panelNominal, loss: 0, desc: "Идеальные лабораторные условия", color: "#737373", isFinal: false },
+            { name: "Погода (Облачность)", val: res.powerAfterWeather, loss: state.panelNominal - res.powerAfterWeather, desc: `Блокировка излучения: ${state.cloudiness}%`, color: "#9ca3af", isFinal: false },
+            { name: "Отражение и Поглощение", val: res.powerAfterAbsorption, loss: res.powerAfterWeather - res.powerAfterAbsorption, desc: "Стекло (Френель + Ламберт-Бер)", color: "#f59e0b", isFinal: false },
+            { name: "Загрязнение (Пыль)", val: res.powerAfterDust, loss: res.powerAfterAbsorption - res.powerAfterDust, desc: `Блокировка: ${state.dust}%`, color: "#78716c", isFinal: false },
+            { name: "Ориентация панели", val: res.powerAfterTilt, loss: res.powerAfterDust - res.powerAfterTilt, desc: "Неперпендикулярное падение (Косинус-фактор)", color: "#3b82f6", isFinal: false },
+            { name: "Нагрев (Термодинамика)", val: res.finalPower, loss: res.powerAfterTilt - res.finalPower, desc: `ΔT = ${state.panelTemp - 25}°C`, color: "#ef4444", isFinal: true }
+        ];
+
+        let html = '';
+        steps.forEach(step => {
+            const lossText = step.loss > 0 && !step.isFinal ? `<div class="step-loss">-${step.loss.toFixed(1)} Вт</div>` : 
+                             step.loss < 0 && !step.isFinal ? `<div class="step-gain">+${Math.abs(step.loss).toFixed(1)} Вт</div>` : '';
+            
+            html += `
+                <div class="loss-step ${step.isFinal ? 'final' : ''}">
+                    <div class="step-left">
+                        <div class="step-dot" style="background-color: ${step.color}"></div>
+                        <div>
+                            <div class="step-name">${step.name}</div>
+                            <div class="step-desc">${step.desc}</div>
+                        </div>
+                    </div>
+                    <div class="step-right">
+                        <div class="step-val">${step.val.toFixed(1)} Вт</div>
+                        ${lossText}
+                    </div>
+                </div>
+            `;
+        });
+        waterfallContainer.innerHTML = html;
+    }
+
+    // 5. Обработчики событий
+    // Привязка ползунков
+    Object.keys(inputs).forEach(key => {
+        inputs[key].addEventListener('input', (e) => {
+            state[key] = parseFloat(e.target.value);
+            render();
+        });
+    });
+
+    // Привязка кнопок количества стекол
+    glassButtons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            glassButtons.forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            state.glassCount = parseInt(e.target.getAttribute('data-val'));
+            render();
+        });
+    });
+
+    // Аккордеон формул
+    document.getElementById('btn-formulas').addEventListener('click', () => {
+        const content = document.getElementById('formulas-content');
+        const arrow = document.getElementById('formulas-arrow');
+        const isOpen = content.classList.contains('open');
+        
+        if (isOpen) {
+            content.classList.remove('open');
+            arrow.textContent = '▼';
+        } else {
+            content.classList.add('open');
+            arrow.textContent = '▲';
+        }
+    });
+
+    // 6. Инициализация при загрузке
+    render();
+
+</script>
+</body>
+</html>

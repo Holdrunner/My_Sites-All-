@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LineArt Pro - Raster to Vector</title>
+    <style>
+        /* =========================================
+           CSS СТИЛИ: ПЕРЕМЕННЫЕ И БАЗОВЫЕ НАСТРОЙКИ
+           ========================================= */
+        :root {
+            --bg-main: #0b0d14;
+            --bg-panel: rgba(22, 26, 38, 0.7);
+            --accent: #00f0ff;
+            --accent-hover: #00c3ff;
+            --accent-glow: rgba(0, 240, 255, 0.4);
+            --text-main: #ffffff;
+            --text-muted: #8c92a5;
+            --border: rgba(255, 255, 255, 0.08);
+            --border-highlight: rgba(255, 255, 255, 0.15);
+            --radius-md: 12px;
+            --radius-lg: 20px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* =========================================
+           CSS СТИЛИ: ЛЕЙАУТ И КОМПОНЕНТЫ
+           ========================================= */
+        .sidebar {
+            width: 320px;
+            min-width: 320px;
+            background: var(--bg-panel);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            box-shadow: 5px 0 30px rgba(0,0,0,0.5);
+        }
+
+        .header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            color: var(--accent);
+            filter: drop-shadow(0 0 8px var(--accent-glow));
+        }
+
+        .header h1 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        /* Переключатель языков */
+        .lang-switcher {
+            display: flex;
+            gap: 4px;
+            background: rgba(0,0,0,0.3);
+            padding: 4px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        .lang-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .lang-flag {
+            width: 20px;
+            height: 14px;
+            border-radius: 2px;
+            opacity: 0.4;
+            transition: all 0.2s;
+        }
+        .lang-btn.active {
+            background: rgba(0, 240, 255, 0.15);
+            color: var(--accent);
+        }
+        .lang-btn.active .lang-flag {
+            opacity: 1;
+            box-shadow: 0 0 5px rgba(0, 240, 255, 0.5);
+        }
+        .lang-btn:hover:not(.active) {
+            color: var(--text-main);
+            background: rgba(255,255,255,0.05);
+        }
+        .lang-btn:hover:not(.active) .lang-flag {
+            opacity: 0.8;
+        }
+
+        .controls {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .control-group label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .val-display {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        /* Кастомные ползунки */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]:focus { outline: none; }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            background: var(--text-main);
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -6px;
+            box-shadow: 0 0 10px var(--accent-glow);
+            border: 2px solid var(--accent);
+            transition: transform 0.2s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        input[type=range]:disabled::-webkit-slider-thumb {
+            background: #555; border-color: #555; box-shadow: none; cursor: not-allowed;
+        }
+
+        /* Выбор цвета */
+        .color-options {
+            display: flex;
+            gap: 10px;
+        }
+        .color-btn {
+            flex: 1;
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: rgba(0,0,0,0.3);
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.85rem;
+        }
+        .color-btn.active {
+            border-color: var(--accent);
+            color: var(--text-main);
+            background: rgba(0, 240, 255, 0.1);
+        }
+        
+        /* Секции настроек */
+        .settings-section {
+            padding-bottom: 15px;
+            border-bottom: 1px dashed var(--border);
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .settings-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        .section-title {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        /* Кнопки действий */
+        .actions {
+            padding: 24px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 14px;
+            border-radius: var(--radius-md);
+            border: none;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), #0073ff);
+            color: #000;
+            box-shadow: 0 4px 15px var(--accent-glow);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px var(--accent-glow);
+        }
+        .btn-primary:disabled {
+            background: #333; color: #666; box-shadow: none; cursor: not-allowed; transform: none;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-main);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.05);
+            border-color: var(--border-highlight);
+        }
+
+        /* Рабочая область */
+        .workspace {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #0e1015;
+            background-image: 
+                linear-gradient(45deg, #13161c 25%, transparent 25%, transparent 75%, #13161c 75%, #13161c),
+                linear-gradient(45deg, #13161c 25%, transparent 25%, transparent 75%, #13161c 75%, #13161c);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+            overflow: hidden;
+        }
+
+        .upload-zone {
+            position: absolute;
+            width: 80%;
+            max-width: 500px;
+            aspect-ratio: 16/10;
+            border: 2px dashed var(--border-highlight);
+            border-radius: var(--radius-lg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(10px);
+            cursor: pointer;
+            transition: all 0.3s;
+            z-index: 5;
+        }
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: var(--accent);
+            background: rgba(0, 240, 255, 0.05);
+        }
+        .upload-icon {
+            width: 48px;
+            height: 48px;
+            color: var(--text-muted);
+            transition: color 0.3s;
+        }
+        .upload-zone:hover .upload-icon { color: var(--accent); }
+        .upload-zone p { color: var(--text-muted); font-size: 0.95rem; text-align: center; line-height: 1.5;}
+        
+        #fileInput { display: none; }
+
+        /* Контейнер результата */
+        .result-container {
+            position: relative;
+            width: 90%;
+            height: 90%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+        }
+        .result-container.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #originalImage, svg#vectorResult {
+            position: absolute;
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        #originalImage {
+            object-fit: contain;
+            opacity: 0.2; /* По умолчанию 20% */
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        svg#vectorResult {
+            z-index: 2;
+            filter: drop-shadow(0 5px 15px rgba(0,0,0,0.5));
+            transition: all 0.3s ease;
+        }
+
+        /* Загрузчик */
+        .loader-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(11, 13, 20, 0.8);
+            backdrop-filter: blur(5px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        .loader-overlay.active { opacity: 1; pointer-events: auto; }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(0, 240, 255, 0.2);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loader-text { color: var(--accent); font-weight: 500; letter-spacing: 1px; }
+
+        /* Подсказка по управлению (Зум/Панорама) */
+        .view-hint {
+            position: absolute;
+            bottom: 24px;
+            right: 24px;
+            background: rgba(11, 13, 20, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 10px 16px;
+            border-radius: var(--radius-md);
+            font-size: 0.85rem;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 10;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .result-container.active ~ .view-hint {
+            opacity: 1;
+        }
+        .view-hint kbd {
+            background: rgba(255,255,255,0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--text-main);
+            font-family: monospace;
+            font-size: 0.8rem;
+        }
+
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 50vh;}
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- БОКОВАЯ ПАНЕЛЬ -->
+    <aside class="sidebar">
+        <div class="header">
+            <div class="header-title">
+                <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2L2 22h20L12 2z"/>
+                    <path d="M12 10v4"/>
+                    <path d="M10 16h4"/>
+                </svg>
+                <h1>LineArt Pro</h1>
+            </div>
+            <!-- ПЕРЕКЛЮЧАТЕЛЬ ЯЗЫКОВ -->
+            <div class="lang-switcher">
+                <button class="lang-btn active" data-lang="en">
+                    <span>EN</span>
+                    <svg class="lang-flag" viewBox="0 0 24 16" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="24" height="16" fill="#012169"/>
+                        <path d="M0,0 L24,16 M24,0 L0,16" stroke="#fff" stroke-width="3"/>
+                        <path d="M0,0 L24,16 M24,0 L0,16" stroke="#C8102E" stroke-width="1.5"/>
+                        <path d="M12,0 L12,16 M0,8 L24,8" stroke="#fff" stroke-width="4"/>
+                        <path d="M12,0 L12,16 M0,8 L24,8" stroke="#C8102E" stroke-width="2"/>
+                    </svg>
+                </button>
+                <button class="lang-btn" data-lang="uk">
+                    <span>UKR</span>
+                    <svg class="lang-flag" viewBox="0 0 24 16" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="24" height="8" fill="#0057B7"/>
+                        <rect y="8" width="24" height="8" fill="#FFDD00"/>
+                    </svg>
+                </button>
+                <button class="lang-btn" data-lang="ru">
+                    <span>RU</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="settings-section">
+                <div class="section-title" data-i18n="basic_settings">BASIC SETTINGS</div>
+                <div class="control-group">
+                    <label>
+                        <span data-i18n="threshold">Pixel Threshold</span>
+                        <span class="val-display" id="val-threshold">29</span>
+                    </label>
+                    <input type="range" id="threshold" min="10" max="245" value="29" disabled>
+                </div>
+                <div class="control-group">
+                    <label>
+                        <span data-i18n="opacity">Source Opacity</span>
+                        <span class="val-display" id="val-opacity">20%</span>
+                    </label>
+                    <input type="range" id="opacity" min="0" max="100" value="20" disabled>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="section-title" data-i18n="smart_processing">SMART PROCESSING</div>
+                
+                <div class="control-group">
+                    <label>
+                        <span data-i18n="simplify">Simplification (RDP)</span>
+                        <span class="val-display" id="val-simplify">1.0</span>
+                    </label>
+                    <input type="range" id="simplify" min="0" max="10" step="0.1" value="1.0" disabled>
+                </div>
+
+                <div class="control-group">
+                    <label>
+                        <span data-i18n="smoothness">Curve Smoothness</span>
+                        <span class="val-display" id="val-smoothness">2.0</span>
+                    </label>
+                    <input type="range" id="smoothness" min="0" max="5" step="0.1" value="2.0" disabled>
+                </div>
+
+                <div class="control-group">
+                    <label>
+                        <span data-i18n="noise">Line Length Filter</span>
+                        <span class="val-display" id="val-noise">20</span>
+                    </label>
+                    <input type="range" id="noise" min="2" max="100" value="20" disabled>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="control-group">
+                    <label><span data-i18n="line_color">Line Color (Export)</span></label>
+                    <div class="color-options">
+                        <button class="color-btn active" data-color="#ffffff" data-i18n="color_light">Light</button>
+                        <button class="color-btn" data-color="#00f0ff" data-i18n="color_neon">Neon</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button class="btn btn-secondary" id="btn-reupload">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span data-i18n="btn_reupload">Upload Another</span>
+            </button>
+            <button class="btn btn-primary" id="btn-export" disabled>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <span data-i18n="btn_export">Export SVG</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- РАБОЧАЯ ОБЛАСТЬ -->
+    <main class="workspace" id="workspace">
+        <div class="upload-zone" id="uploadZone">
+            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            <p data-i18n="upload_text" data-html="true">Drag and drop image here<br><small>or click to select file (JPG, PNG, WebP)</small></p>
+            <input type="file" id="fileInput" accept="image/png, image/jpeg, image/webp">
+        </div>
+
+        <div class="result-container" id="resultContainer">
+            <img id="originalImage" src="" alt="Оригинал">
+            <svg id="vectorResult" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+                <g id="svgGroup" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></g>
+            </svg>
+        </div>
+
+        <div class="loader-overlay" id="loader">
+            <div class="spinner"></div>
+            <div class="loader-text" id="loaderText" data-i18n="loader_init">Analyzing pixels...</div>
+        </div>
+
+        <div class="view-hint" id="viewHint">
+            <span><kbd data-i18n="kbd_wheel">Wheel</kbd> <span data-i18n="hint_scale">Scale</span></span>
+            <span><kbd data-i18n="kbd_rmb">RMB</kbd> <span data-i18n="hint_pan">Pan</span></span>
+            <span><kbd data-i18n="kbd_dblclick">Double Click</kbd> <span data-i18n="hint_reset">Reset</span></span>
+        </div>
+    </main>
+
+    <canvas id="hiddenCanvas" style="display:none;"></canvas>
+
+    <!-- =========================================
+         JAVASCRIPT ЛОГИКА
+         ========================================= -->
+    <script>
+        // --- СЛОВАРЬ ПЕРЕВОДОВ (i18n) ---
+        const i18n = {
+            en: {
+                basic_settings: "BASIC SETTINGS",
+                threshold: "Pixel Threshold",
+                opacity: "Source Opacity",
+                smart_processing: "SMART PROCESSING",
+                simplify: "Simplification (RDP)",
+                smoothness: "Curve Smoothness",
+                noise: "Line Length Filter",
+                line_color: "Line Color (Export)",
+                color_light: "Light",
+                color_neon: "Neon",
+                btn_reupload: "Upload Another",
+                btn_export: "Export SVG",
+                upload_text: "Drag and drop image here<br><small>or click to select file (JPG, PNG, WebP)</small>",
+                loader_init: "Initializing engine...",
+                prog_binarization: "Binarization (B/W)...",
+                prog_edges: "Generating contour segments...",
+                prog_paths: "Assembling continuous paths...",
+                prog_optim: "Vector optimization (RDP & Smoothing)...",
+                kbd_wheel: "Wheel",
+                hint_scale: "Scale",
+                kbd_rmb: "RMB",
+                hint_pan: "Pan",
+                kbd_dblclick: "Double Click",
+                hint_reset: "Reset"
+            },
+            uk: {
+                basic_settings: "БАЗОВІ НАЛАШТУВАННЯ",
+                threshold: "Поріг пікселів",
+                opacity: "Прозорість оригіналу",
+                smart_processing: "ІНТЕЛЕКТУАЛЬНА ОБРОБКА",
+                simplify: "Спрощення (Алгоритм RDP)",
+                smoothness: "Згладжування кривих",
+                noise: "Фільтр довжини лінії",
+                line_color: "Колір лінії (Експорт)",
+                color_light: "Світлий",
+                color_neon: "Неон",
+                btn_reupload: "Завантажити інше",
+                btn_export: "Експорт SVG",
+                upload_text: "Перетягніть зображення сюди<br><small>або клікніть для вибору файлу (JPG, PNG, WebP)</small>",
+                loader_init: "Ініціалізація рушія...",
+                prog_binarization: "Бінаризація (Ч/Б)...",
+                prog_edges: "Генерація сегментів контуру...",
+                prog_paths: "Збирання безперервних шляхів...",
+                prog_optim: "Векторна оптимізація (RDP та Згладжування)...",
+                kbd_wheel: "Коліщатко",
+                hint_scale: "Масштаб",
+                kbd_rmb: "ПКМ",
+                hint_pan: "Панорама",
+                kbd_dblclick: "Подвійний клік",
+                hint_reset: "Скидання"
+            },
+            ru: {
+                basic_settings: "БАЗОВЫЕ НАСТРОЙКИ",
+                threshold: "Порог пикселей",
+                opacity: "Прозрачность исходника",
+                smart_processing: "ИНТЕЛЛЕКТУАЛЬНАЯ ОБРАБОТКА",
+                simplify: "Упрощение (RDP Алгоритм)",
+                smoothness: "Сглаживание кривых",
+                noise: "Фильтр длины линии",
+                line_color: "Цвет линии (Экспорт)",
+                color_light: "Светлый",
+                color_neon: "Неон",
+                btn_reupload: "Загрузить другое",
+                btn_export: "Экспорт SVG",
+                upload_text: "Перетащите изображение сюда<br><small>или кликните для выбора файла (JPG, PNG, WebP)</small>",
+                loader_init: "Инициализация движка...",
+                prog_binarization: "Бинаризация (Ч/Б)...",
+                prog_edges: "Генерация сегментов контура...",
+                prog_paths: "Сборка непрерывных путей...",
+                prog_optim: "Векторная оптимизация (RDP & Сглаживание)...",
+                kbd_wheel: "Колесико",
+                hint_scale: "Масштаб",
+                kbd_rmb: "ПКМ",
+                hint_pan: "Панорама",
+                kbd_dblclick: "Двойной клик",
+                hint_reset: "Сброс"
+            }
+        };
+
+        const UI = {
+            workspace: document.getElementById('workspace'),
+            uploadZone: document.getElementById('uploadZone'),
+            fileInput: document.getElementById('fileInput'),
+            resultContainer: document.getElementById('resultContainer'),
+            originalImage: document.getElementById('originalImage'),
+            vectorResult: document.getElementById('vectorResult'),
+            svgGroup: document.getElementById('svgGroup'),
+            hiddenCanvas: document.getElementById('hiddenCanvas'),
+            loader: document.getElementById('loader'),
+            loaderText: document.getElementById('loaderText'),
+            inputs: {
+                threshold: document.getElementById('threshold'),
+                smoothness: document.getElementById('smoothness'),
+                noise: document.getElementById('noise'),
+                simplify: document.getElementById('simplify')
+            },
+            opacityInput: document.getElementById('opacity'),
+            btnReupload: document.getElementById('btn-reupload'),
+            btnExport: document.getElementById('btn-export'),
+            colorBtns: document.querySelectorAll('.color-btn'),
+            langBtns: document.querySelectorAll('.lang-btn')
+        };
+
+        let currentLang = 'en'; // Язык по умолчанию
+        let currentImageData = null;
+        let currentImageWidth = 0;
+        let currentImageHeight = 0;
+        let strokeColor = '#ffffff';
+        let vectorWorker = null;
+        let debounceTimer = null;
+
+        // Переменные для зума и панорамирования
+        let viewScale = 1;
+        let viewPanX = 0;
+        let viewPanY = 0;
+        let isPanning = false;
+        let startPanX = 0;
+        let startPanY = 0;
+
+        // --- ЛОГИКА ПЕРЕКЛЮЧЕНИЯ ЯЗЫКОВ ---
+        function setLanguage(lang) {
+            currentLang = lang;
+            
+            // Обновляем все элементы с атрибутом data-i18n
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (i18n[lang][key]) {
+                    if (el.getAttribute('data-html') === 'true') {
+                        el.innerHTML = i18n[lang][key];
+                    } else {
+                        el.textContent = i18n[lang][key];
+                    }
+                }
+            });
+            
+            // Обновляем активную кнопку
+            UI.langBtns.forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-lang') === lang);
+            });
+        }
+
+        UI.langBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // ИСПРАВЛЕНИЕ ОШИБКИ: читаем атрибут напрямую из кнопки (btn), а не из e.target
+                setLanguage(btn.getAttribute('data-lang'));
+            });
+        });
+
+        // ПЕРЕПИСАННЫЙ ДВИЖОК: БИНАРИЗАЦИЯ -> ТОПОЛОГИЧЕСКОЕ СШИВАНИЕ ГРАНИЦ -> RDP -> CHAIKIN
+        const workerCode = `
+            self.onmessage = function(e) {
+                const { imgBuffer, width, height, threshold, noise, smoothness, simplify } = e.data;
+                const data = new Uint8Array(imgBuffer);
+                let bin = new Uint8Array(width * height);
+                
+                // Используем ключи перевода вместо жестко заданного текста
+                self.postMessage({ progress: 'prog_binarization' });
+                
+                // Эвристика определения фона
+                let cornersLumaSum = 0;
+                const corners = [0, width-1, (height-1)*width, height*width-1];
+                for(let c of corners) {
+                    let r = data[c*4], g = data[c*4+1], b = data[c*4+2];
+                    cornersLumaSum += r*0.299 + g*0.587 + b*0.114;
+                }
+                const isDarkBg = (cornersLumaSum / 4) < 128;
+
+                for(let i=0; i<data.length; i+=4) {
+                    let r = data[i], g = data[i+1], b = data[i+2], a = data[i+3];
+                    let luma = r*0.299 + g*0.587 + b*0.114;
+                    
+                    if(a < 128) {
+                        bin[i/4] = 0; // Фон
+                    } else {
+                        if(isDarkBg) {
+                            bin[i/4] = luma > threshold ? 1 : 0;
+                        } else {
+                            bin[i/4] = luma < threshold ? 1 : 0;
+                        }
+                    }
+                }
+
+                let w = width, h = height;
+
+                self.postMessage({ progress: 'prog_edges' });
+                let segments = new Map();
+                const w1 = w + 1; 
+                
+                function addSeg(x1, y1, x2, y2) {
+                    let k1 = y1 * w1 + x1;
+                    let k2 = y2 * w1 + x2;
+                    if (!segments.has(k1)) segments.set(k1, []);
+                    segments.get(k1).push({x: x2, y: y2, k: k2});
+                }
+
+                for (let y = 1; y < h - 1; y++) {
+                    for (let x = 1; x < w - 1; x++) {
+                        if (bin[y * w + x] === 1) {
+                            if (bin[(y - 1) * w + x] === 0) addSeg(x, y, x + 1, y);
+                            if (bin[y * w + (x + 1)] === 0) addSeg(x + 1, y, x + 1, y + 1);
+                            if (bin[(y + 1) * w + x] === 0) addSeg(x + 1, y + 1, x, y + 1);
+                            if (bin[y * w + (x - 1)] === 0) addSeg(x, y + 1, x, y);
+                        }
+                    }
+                }
+
+                self.postMessage({ progress: 'prog_paths' });
+                let paths = [];
+                for (let [startK, nexts] of segments.entries()) {
+                    while (nexts.length > 0) {
+                        let path = [];
+                        let currentK = startK;
+                        let currentPos = {x: startK % w1, y: Math.floor(startK / w1)};
+                        path.push([currentPos.x, currentPos.y]);
+
+                        while (true) {
+                            let outs = segments.get(currentK);
+                            if (!outs || outs.length === 0) break;
+                            
+                            let next = outs.pop(); 
+                            path.push([next.x, next.y]);
+                            currentK = next.k;
+
+                            if (currentK === startK) break;
+                        }
+                        
+                        if (path.length >= noise) {
+                            paths.push(path);
+                        }
+                    }
+                }
+
+                self.postMessage({ progress: 'prog_optim' });
+                
+                function pointLineDist(p, a, b) {
+                    let num = Math.abs((b[1]-a[1])*p[0] - (b[0]-a[0])*p[1] + b[0]*a[1] - b[1]*a[0]);
+                    let den = Math.sqrt(Math.pow(b[1]-a[1], 2) + Math.pow(b[0]-a[0], 2));
+                    return den === 0 ? Math.sqrt(Math.pow(p[0]-a[0],2) + Math.pow(p[1]-a[1],2)) : num/den;
+                }
+
+                function rdp(points, epsilon) {
+                    if(points.length < 3) return points;
+                    let maxDist = 0, index = 0;
+                    const end = points.length - 1;
+                    for(let i=1; i<end; i++) {
+                        let d = pointLineDist(points[i], points[0], points[end]);
+                        if(d > maxDist) { maxDist = d; index = i; }
+                    }
+                    if(maxDist > epsilon) {
+                        let rec1 = rdp(points.slice(0, index + 1), epsilon);
+                        let rec2 = rdp(points.slice(index), epsilon);
+                        return rec1.slice(0, rec1.length - 1).concat(rec2);
+                    } else {
+                        return [points[0], points[end]];
+                    }
+                }
+
+                function smoothPath(p, amount) {
+                    if(amount === 0 || p.length < 3) return p;
+                    let cur = p;
+                    let iters = Math.ceil(amount);
+                    
+                    for(let i=0; i<iters; i++) {
+                        let next = [];
+                        
+                        let w = (i === iters - 1 && amount % 1 !== 0) ? (amount % 1) : 1;
+                        let cut = 0.25 * w;
+                        
+                        for(let j=0; j<cur.length-1; j++) {
+                            let p0 = cur[j], p1 = cur[j+1];
+                            next.push([
+                                p0[0] * (1 - cut) + p1[0] * cut,
+                                p0[1] * (1 - cut) + p1[1] * cut
+                            ]);
+                            next.push([
+                                p0[0] * cut + p1[0] * (1 - cut),
+                                p0[1] * cut + p1[1] * (1 - cut)
+                            ]);
+                        }
+                        
+                        if (cur[0][0] === cur[cur.length-1][0] && cur[0][1] === cur[cur.length-1][1]) {
+                             next.push(next[0]);
+                        } else {
+                            next.unshift(cur[0]);
+                            next.push(cur[cur.length-1]);
+                        }
+                        cur = next;
+                    }
+                    return cur;
+                }
+
+                let svgContent = '';
+                for(let i=0; i<paths.length; i++) {
+                    let p = paths[i];
+                    
+                    if (simplify > 0) p = rdp(p, simplify);
+                    let sp = smoothPath(p, smoothness);
+                    
+                    if (sp.length === 0) continue;
+                    let d = "M "+sp[0][0].toFixed(1)+" "+sp[0][1].toFixed(1)+" ";
+                    for(let j=1; j<sp.length; j++) {
+                        d += "L "+sp[j][0].toFixed(1)+" "+sp[j][1].toFixed(1)+" ";
+                    }
+                    svgContent += '<path d="'+d+'"/>\\n';
+                }
+
+                self.postMessage({ done: true, svg: svgContent });
+            };
+        `;
+        
+        const workerBlob = new Blob([workerCode], { type: 'application/javascript' });
+        vectorWorker = new Worker(URL.createObjectURL(workerBlob));
+
+        vectorWorker.onmessage = function(e) {
+            if(e.data.progress) {
+                // Перевод статуса загрузчика на лету
+                UI.loaderText.innerHTML = i18n[currentLang][e.data.progress] || e.data.progress;
+            } else if (e.data.done) {
+                UI.svgGroup.innerHTML = e.data.svg;
+                UI.loader.classList.remove('active');
+                updateSvgColors();
+            }
+        };
+
+        // --- ОБРАБОТКА ИЗОБРАЖЕНИЙ ---
+        function handleFile(file) {
+            if(!file || !file.type.startsWith('image/')) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    let w = img.width;
+                    let h = img.height;
+                    
+                    currentImageWidth = w;
+                    currentImageHeight = h;
+                    
+                    const ctx = UI.hiddenCanvas.getContext('2d');
+                    UI.hiddenCanvas.width = w;
+                    UI.hiddenCanvas.height = h;
+                    ctx.drawImage(img, 0, 0, w, h);
+                    
+                    currentImageData = ctx.getImageData(0, 0, w, h);
+                    
+                    UI.originalImage.src = img.src;
+                    UI.vectorResult.setAttribute('viewBox', `0 0 ${w} ${h}`);
+                    
+                    UI.uploadZone.style.display = 'none';
+                    UI.resultContainer.classList.add('active');
+                    Object.values(UI.inputs).forEach(input => input.disabled = false);
+                    UI.opacityInput.disabled = false;
+                    
+                    UI.btnExport.disabled = false;
+
+                    viewScale = 1;
+                    viewPanX = 0;
+                    viewPanY = 0;
+                    updateView();
+
+                    triggerVectorization();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function triggerVectorization() {
+            if(!currentImageData) return;
+            
+            UI.loader.classList.add('active');
+            UI.loaderText.innerHTML = i18n[currentLang]['loader_init'];
+            
+            const bufferCopy = currentImageData.data.slice(0).buffer;
+            
+            vectorWorker.postMessage({
+                imgBuffer: bufferCopy,
+                width: currentImageWidth,
+                height: currentImageHeight,
+                threshold: parseInt(UI.inputs.threshold.value),
+                noise: parseInt(UI.inputs.noise.value),
+                smoothness: parseFloat(UI.inputs.smoothness.value),
+                simplify: parseFloat(UI.inputs.simplify.value)
+            }, [bufferCopy]);
+        }
+
+        // --- ВЗАИМОДЕЙСТВИЕ С UI ---
+        UI.uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); UI.uploadZone.classList.add('dragover'); });
+        UI.uploadZone.addEventListener('dragleave', () => { UI.uploadZone.classList.remove('dragover'); });
+        UI.uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            UI.uploadZone.classList.remove('dragover');
+            handleFile(e.dataTransfer.files[0]);
+        });
+        
+        UI.uploadZone.addEventListener('click', () => UI.fileInput.click());
+        UI.fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+
+        Object.keys(UI.inputs).forEach(key => {
+            const input = UI.inputs[key];
+            const display = document.getElementById(`val-${key}`);
+            
+            input.addEventListener('input', (e) => {
+                let val = parseFloat(e.target.value);
+                display.textContent = (key === 'simplify' || key === 'smoothness') ? val.toFixed(1) : val;
+                
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    triggerVectorization();
+                }, 500);
+            });
+        });
+
+        UI.opacityInput.addEventListener('input', (e) => {
+            document.getElementById('val-opacity').textContent = e.target.value + '%';
+            UI.originalImage.style.opacity = e.target.value / 100;
+        });
+
+        UI.colorBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // ИСПРАВЛЕНИЕ ОШИБКИ: Аналогичное исправление для кнопок цвета на всякий случай
+                UI.colorBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                strokeColor = btn.getAttribute('data-color');
+                updateSvgColors();
+            });
+        });
+
+        function updateSvgColors() {
+            UI.svgGroup.setAttribute('stroke', strokeColor);
+            if(strokeColor === '#000000') {
+                UI.vectorResult.style.filter = 'drop-shadow(0 5px 15px rgba(255,255,255,0.2))';
+            } else {
+                UI.vectorResult.style.filter = 'drop-shadow(0 5px 15px rgba(0,0,0,0.5))';
+            }
+        }
+
+        UI.btnReupload.addEventListener('click', () => { UI.fileInput.click(); });
+
+        UI.btnExport.addEventListener('click', () => {
+            if(!UI.svgGroup.innerHTML.trim()) return;
+            
+            const exportSvg = UI.vectorResult.cloneNode(true);
+            exportSvg.style.filter = '';
+            exportSvg.removeAttribute('id');
+            exportSvg.querySelector('g').removeAttribute('id');
+            
+            const serializer = new XMLSerializer();
+            let source = serializer.serializeToString(exportSvg);
+            if(!source.match(/^<\?xml/)) {
+                source = '<?xml version="1.0" standalone="no"?>\r\n' + source;
+            }
+
+            const url = "data:image/svg+xml;charset=utf-8,"+encodeURIComponent(source);
+            
+            const downloadLink = document.createElement("a");
+            downloadLink.href = url;
+            downloadLink.download = "LineArt_Vectorized.svg";
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+        });
+
+        // --- ЛОГИКА ЗУМА И ПАНОРАМИРОВАНИЯ ---
+        function updateView() {
+            UI.resultContainer.style.transform = `translate(${viewPanX}px, ${viewPanY}px) scale(${viewScale})`;
+        }
+
+        UI.workspace.addEventListener('wheel', (e) => {
+            if (!UI.resultContainer.classList.contains('active')) return;
+            e.preventDefault();
+            
+            const rect = UI.workspace.getBoundingClientRect();
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            const mouseX = e.clientX - rect.left - centerX;
+            const mouseY = e.clientY - rect.top - centerY;
+
+            const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+            const newScale = Math.min(Math.max(0.1, viewScale * zoomFactor), 50);
+
+            viewPanX = mouseX - (mouseX - viewPanX) * (newScale / viewScale);
+            viewPanY = mouseY - (mouseY - viewPanY) * (newScale / viewScale);
+            viewScale = newScale;
+            
+            updateView();
+        }, { passive: false });
+
+        UI.workspace.addEventListener('mousedown', (e) => {
+            if (!UI.resultContainer.classList.contains('active')) return;
+            if (e.button === 2) { 
+                e.preventDefault();
+                isPanning = true;
+                startPanX = e.clientX - viewPanX;
+                startPanY = e.clientY - viewPanY;
+                UI.workspace.style.cursor = 'grabbing';
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isPanning) return;
+            viewPanX = e.clientX - startPanX;
+            viewPanY = e.clientY - startPanY;
+            updateView();
+        });
+
+        window.addEventListener('mouseup', (e) => {
+            if (e.button === 2 && isPanning) {
+                isPanning = false;
+                UI.workspace.style.cursor = '';
+            }
+        });
+
+        UI.workspace.addEventListener('contextmenu', (e) => {
+            if (UI.resultContainer.classList.contains('active')) {
+                e.preventDefault();
+            }
+        });
+        
+        UI.workspace.addEventListener('dblclick', () => {
+            if (UI.resultContainer.classList.contains('active')) {
+                viewScale = 1;
+                viewPanX = 0;
+                viewPanY = 0;
+                updateView();
+            }
+        });
+
+        // Инициализация языка при запуске
+        setLanguage('en');
+
+    </script>
+</body>
+</html>

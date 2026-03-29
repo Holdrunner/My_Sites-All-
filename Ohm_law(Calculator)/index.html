@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ElectroCalc</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-slate-950">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    // --- SVG Іконки (заміна lucide-react для роботи без NPM) ---
+    const Zap = (props) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>;
+    const Activity = (props) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>;
+    const Battery = (props) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><rect width="16" height="10" x="2" y="7" rx="2" ry="2"/><line x1="22" x2="22" y1="11" y2="13"/></svg>;
+    const Sliders = (props) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="2" x2="6" y1="14" y2="14"/><line x1="10" x2="14" y1="8" y2="8"/><line x1="18" x2="22" y1="16" y2="16"/></svg>;
+    const RotateCcw = (props) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>;
+    const Calculator = (props) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>;
+
+    // --- Переклади ---
+    const translations = {
+      uk: {
+        title: "ElectroCalc",
+        subtitle: "Інженерний калькулятор кіл постійного струму",
+        voltage: "Напруга (U)",
+        current: "Сила струму (I)",
+        resistance: "Опір (R)",
+        power: "Потужність (P)",
+        calcBtn: "РОЗРАХУВАТИ",
+        resetBtn: "Скинути",
+        err2Params: "Введіть рівно 2 параметри",
+        errDiv0I: "Струм = 0 (ділення на нуль)",
+        errDiv0R: "Опір = 0 (Коротке замикання)",
+        errU0: "Напруга = 0",
+        errNeg: "Значення мають бути > 0",
+        errorPrefix: "Помилка:",
+        logicTitle: "Логіка розрахунку",
+        formulaDesc: "формула",
+        name_u: "Напруга",
+        name_i: "Сила струму",
+        name_r: "Опір",
+        name_p: "Потужність"
+      },
+      en: {
+        title: "ElectroCalc",
+        subtitle: "DC Circuit Engineering Calculator",
+        voltage: "Voltage (U)",
+        current: "Current (I)",
+        resistance: "Resistance (R)",
+        power: "Power (P)",
+        calcBtn: "CALCULATE",
+        resetBtn: "Reset",
+        err2Params: "Enter exactly 2 parameters",
+        errDiv0I: "Current = 0 (division by zero)",
+        errDiv0R: "Resistance = 0 (Short Circuit)",
+        errU0: "Voltage = 0",
+        errNeg: "Values must be > 0",
+        errorPrefix: "Error:",
+        logicTitle: "Calculation Logic",
+        formulaDesc: "formula",
+        name_u: "Voltage",
+        name_i: "Current",
+        name_r: "Resistance",
+        name_p: "Power"
+      }
+    };
+
+    // --- Компонент інпуту ---
+    function ParamInput({ label, unit, name, value, onChange, icon, theme }) {
+      const themes = {
+        cyan: {
+          text: 'text-cyan-400',
+          border: 'group-focus-within:border-cyan-500/50',
+          shadow: 'group-focus-within:shadow-cyan-500/20',
+          icon: 'text-cyan-400',
+          bg: 'bg-cyan-500/5'
+        },
+        rose: {
+          text: 'text-rose-400',
+          border: 'group-focus-within:border-rose-500/50',
+          shadow: 'group-focus-within:shadow-rose-500/20',
+          icon: 'text-rose-400',
+          bg: 'bg-rose-500/5'
+        },
+        emerald: {
+          text: 'text-emerald-400',
+          border: 'group-focus-within:border-emerald-500/50',
+          shadow: 'group-focus-within:shadow-emerald-500/20',
+          icon: 'text-emerald-400',
+          bg: 'bg-emerald-500/5'
+        },
+        amber: {
+          text: 'text-amber-400',
+          border: 'group-focus-within:border-amber-500/50',
+          shadow: 'group-focus-within:shadow-amber-500/20',
+          icon: 'text-amber-400',
+          bg: 'bg-amber-500/5'
+        }
+      };
+
+      const t = themes[theme];
+
+      return (
+        <div className={`group relative bg-slate-900 rounded-2xl p-1 transition-all duration-300 border border-slate-800 hover:border-slate-700 ${t.border} shadow-lg ${t.shadow}`}>
+          <div className={`h-full rounded-xl p-5 flex flex-col justify-between ${t.bg}`}>
+            <div className="flex justify-between items-start mb-4">
+              <label className={`text-xs font-bold uppercase tracking-wider ${t.text} opacity-80`}>
+                {label}
+              </label>
+              <div className={`${t.icon} opacity-80`}>
+                {icon}
+              </div>
+            </div>
+            
+            <div className="relative flex items-baseline">
+              <input
+                type="number"
+                name={name}
+                value={value}
+                onChange={onChange}
+                placeholder="0"
+                className="w-full bg-transparent text-3xl font-mono font-medium text-slate-100 placeholder-slate-700 outline-none pb-1 border-b-2 border-slate-800 focus:border-white/20 transition-colors"
+              />
+              <span className="ml-2 text-sm font-bold text-slate-600 font-mono select-none">
+                {unit}
+              </span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // --- Головний компонент App ---
+    function App() {
+      const [lang, setLang] = useState('uk');
+      const [values, setValues] = useState({ u: '', i: '', r: '', p: '' });
+      const [formulas, setFormulas] = useState([]);
+      const [error, setError] = useState('');
+
+      const handleReset = () => {
+        setValues({ u: '', i: '', r: '', p: '' });
+        setFormulas([]);
+        setError('');
+      };
+
+      const handleChange = (e) => {
+        const { name, value } = e.target;
+        if (value === '' || /^\d*\.?\d*$/.test(value)) {
+          setValues(prev => ({ ...prev, [name]: value }));
+          if (formulas.length > 0) {
+            setFormulas([]); 
+            setError('');
+          }
+        }
+      };
+
+      const calculate = () => {
+        const u = parseFloat(values.u);
+        const i = parseFloat(values.i);
+        const r = parseFloat(values.r);
+        const p = parseFloat(values.p);
+
+        const filledCount = [values.u, values.i, values.r, values.p].filter(v => v !== '').length;
+
+        if (filledCount !== 2) {
+          setError('err2Params');
+          setFormulas([]);
+          return;
+        }
+
+        setError('');
+        let newValues = { ...values };
+        let usedFormulas = [];
+
+        // Логіка розрахунку
+        if (!isNaN(u) && !isNaN(i)) {
+          if (i === 0) { setError('errDiv0I'); return; }
+          newValues.r = (u / i).toFixed(4);
+          newValues.p = (u * i).toFixed(4);
+          usedFormulas = [
+            { type: 'name_r', formula: 'R = U / I', desc: `${u} / ${i}` },
+            { type: 'name_p', formula: 'P = U × I', desc: `${u} × ${i}` }
+          ];
+        }
+        else if (!isNaN(u) && !isNaN(r)) {
+          if (r === 0) { setError('errDiv0R'); return; }
+          newValues.i = (u / r).toFixed(4);
+          newValues.p = ((u * u) / r).toFixed(4);
+          usedFormulas = [
+            { type: 'name_i', formula: 'I = U / R', desc: `${u} / ${r}` },
+            { type: 'name_p', formula: 'P = U² / R', desc: `${u}² / ${r}` }
+          ];
+        }
+        else if (!isNaN(u) && !isNaN(p)) {
+          if (u === 0) { setError('errU0'); return; }
+          newValues.i = (p / u).toFixed(4);
+          newValues.r = ((u * u) / p).toFixed(4);
+          usedFormulas = [
+            { type: 'name_i', formula: 'I = P / U', desc: `${p} / ${u}` },
+            { type: 'name_r', formula: 'R = U² / P', desc: `${u}² / ${p}` }
+          ];
+        }
+        else if (!isNaN(i) && !isNaN(r)) {
+          newValues.u = (i * r).toFixed(4);
+          newValues.p = (i * i * r).toFixed(4);
+          usedFormulas = [
+            { type: 'name_u', formula: 'U = I × R', desc: `${i} × ${r}` },
+            { type: 'name_p', formula: 'P = I² × R', desc: `${i}² × ${r}` }
+          ];
+        }
+        else if (!isNaN(i) && !isNaN(p)) {
+          if (i === 0) { setError('errDiv0I'); return; }
+          newValues.u = (p / i).toFixed(4);
+          newValues.r = (p / (i * i)).toFixed(4);
+          usedFormulas = [
+            { type: 'name_u', formula: 'U = P / I', desc: `${p} / ${i}` },
+            { type: 'name_r', formula: 'R = P / I²', desc: `${p} / ${i}²` }
+          ];
+        }
+        else if (!isNaN(p) && !isNaN(r)) {
+          if (r < 0 || p < 0) { setError('errNeg'); return; }
+          newValues.u = Math.sqrt(p * r).toFixed(4);
+          newValues.i = Math.sqrt(p / r).toFixed(4);
+          usedFormulas = [
+            { type: 'name_u', formula: 'U = √(P × R)', desc: `√(${p} × ${r})` },
+            { type: 'name_i', formula: 'I = √(P / R)', desc: `√(${p} / ${r})` }
+          ];
+        }
+
+        // Очищення нулів
+        Object.keys(newValues).forEach(key => {
+          if (newValues[key] !== '' && newValues[key].includes('.')) {
+            newValues[key] = parseFloat(newValues[key]).toString();
+          }
+        });
+
+        setValues(newValues);
+        setFormulas(usedFormulas);
+      };
+
+      const langData = translations[lang];
+
+      return (
+        <div className="min-h-screen bg-slate-950 text-slate-200 p-4 md:p-8 font-sans flex items-center justify-center">
+          <div className="max-w-4xl w-full mx-auto relative">
+            
+            {/* Перемикач мови */}
+            <div className="absolute top-0 right-0 flex bg-slate-900 border border-slate-800 rounded-lg p-1 z-10">
+              <button 
+                onClick={() => setLang('uk')}
+                className={`px-3 py-1 text-xs md:text-sm font-bold rounded-md transition-colors ${lang === 'uk' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+              >UK</button>
+              <button 
+                onClick={() => setLang('en')}
+                className={`px-3 py-1 text-xs md:text-sm font-bold rounded-md transition-colors ${lang === 'en' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+              >EN</button>
+            </div>
+
+            {/* Header */}
+            <header className="mb-10 text-center pt-8 md:pt-0">
+              <h1 className="text-4xl md:text-5xl font-black text-white flex items-center justify-center gap-4 tracking-tight drop-shadow-lg">
+                <Zap className="text-amber-400 w-10 h-10 md:w-12 md:h-12 fill-amber-400/20" />
+                <span className="bg-gradient-to-r from-slate-100 to-slate-400 bg-clip-text text-transparent">
+                  {langData.title}
+                </span>
+              </h1>
+              <p className="text-slate-500 mt-3 text-lg font-medium">
+                {langData.subtitle}
+              </p>
+            </header>
+
+            {/* Calculator Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <ParamInput 
+                label={langData.voltage} 
+                unit="V" 
+                name="u" 
+                value={values.u} 
+                onChange={handleChange}
+                icon={<Battery className="w-6 h-6" />}
+                theme="cyan"
+              />
+              <ParamInput 
+                label={langData.current} 
+                unit="A" 
+                name="i" 
+                value={values.i} 
+                onChange={handleChange}
+                icon={<Activity className="w-6 h-6" />}
+                theme="rose"
+              />
+              <ParamInput 
+                label={langData.resistance} 
+                unit="Ω" 
+                name="r" 
+                value={values.r} 
+                onChange={handleChange}
+                icon={<Sliders className="w-6 h-6" />}
+                theme="emerald"
+              />
+              <ParamInput 
+                label={langData.power} 
+                unit="W" 
+                name="p" 
+                value={values.p} 
+                onChange={handleChange}
+                icon={<Zap className="w-6 h-6 fill-current" />}
+                theme="amber"
+              />
+            </div>
+
+            {/* Controls */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-10">
+              <button 
+                onClick={calculate}
+                className="group relative px-8 py-4 bg-blue-600 rounded-xl font-bold text-white shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:bg-blue-500 transition-all active:scale-95 w-full sm:w-auto overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                <div className="relative flex items-center justify-center gap-3">
+                  <Calculator className="w-5 h-5" />
+                  {langData.calcBtn}
+                </div>
+              </button>
+              
+              <button 
+                onClick={handleReset}
+                className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 hover:border-slate-600 py-4 px-8 rounded-xl font-semibold transition-all active:scale-95 w-full sm:w-auto"
+              >
+                <RotateCcw className="w-5 h-5" />
+                {langData.resetBtn}
+              </button>
+            </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-6 py-4 rounded-xl mb-8 flex items-center justify-center animate-in fade-in slide-in-from-top-2">
+                <span className="font-bold mr-2">{langData.errorPrefix}</span> {langData[error]}
+              </div>
+            )}
+
+            {/* Results / Formulas */}
+            {formulas.length > 0 && (
+              <div className="bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-800 overflow-hidden">
+                <div className="bg-slate-900/80 p-5 border-b border-slate-800 flex justify-between items-center">
+                  <h2 className="text-lg font-bold text-slate-200">{langData.logicTitle}</h2>
+                  <span className="text-xs bg-slate-800 text-slate-400 px-2 py-1 rounded">DC Circuits</span>
+                </div>
+                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {formulas.map((item, index) => (
+                    <div key={index} className="group relative">
+                      <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg opacity-20 blur group-hover:opacity-40 transition duration-500"></div>
+                      <div className="relative bg-slate-950 p-5 rounded-lg border border-slate-800">
+                        <div className="flex justify-between items-start mb-3">
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                            {langData[item.type]}
+                          </span>
+                          <span className="text-slate-600 font-mono text-xs">{langData.formulaDesc}</span>
+                        </div>
+                        <div className="font-mono text-xl text-blue-400 mb-1 font-bold">
+                          {item.formula}
+                        </div>
+                        <div className="text-slate-500 text-sm font-mono border-t border-slate-900 mt-2 pt-2">
+                          = {item.desc}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // Рендер додатку
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>

@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Симулятор Шестерень</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1e232b;
+            color: #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+            margin: 0;
+        }
+
+        .input-field {
+            background-color: #2c3340;
+            color: #e2e8f0;
+            border: 1px solid #4a5568;
+            transition: all 0.2s ease-in-out;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2);
+        }
+
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+
+        .action-button {
+            background-image: linear-gradient(to bottom, #3b82f6, #2563eb);
+            color: white;
+            transition: all 0.2s;
+            border: 1px solid #1d4ed8;
+        }
+        .action-button:hover {
+            background-image: linear-gradient(to bottom, #60a5fa, #3b82f6);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+        .action-button:active {
+            transform: translateY(0);
+            box-shadow: none;
+        }
+        
+        .action-button-secondary {
+            background-image: linear-gradient(to bottom, #4b5563, #374151);
+            color: white;
+            border: 1px solid #1f2937;
+            transition: all 0.2s;
+        }
+        .action-button-secondary:hover {
+            background-image: linear-gradient(to bottom, #6b7280, #4b5563);
+        }
+
+        canvas {
+            background-color: #111418;
+            border-radius: 0.75rem;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.5), 0 4px 6px rgba(0,0,0,0.2);
+            border: 1px solid #374151;
+            width: 100%;
+        }
+
+        .panel-block {
+            background-color: #252b36;
+            border: 1px solid #374151;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: #4b5563;
+            border-radius: 3px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #60a5fa;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3);
+        }
+
+        .form-radio {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            border-radius: 50%;
+            border: 2px solid #60a5fa;
+            background-color: #2c3340;
+            cursor: pointer;
+            position: relative;
+            vertical-align: middle;
+            transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+        }
+        .form-radio:checked {
+            background-color: #3b82f6;
+            border-color: #3b82f6;
+        }
+        .form-radio:checked::after {
+            content: '';
+            display: block;
+            width: 0.4rem;
+            height: 0.4rem;
+            border-radius: 50%;
+            background-color: white;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .message-box {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem;
+            color: white;
+            z-index: 1000;
+            opacity: 0;
+            transition: all 0.3s ease-out;
+            transform: translateY(10px);
+            font-size: 0.875rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .message-box.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .message-box.success { background-color: #059669; }
+        .message-box.error { background-color: #dc2626; }
+
+        /* Класс для мигания салатовым цветом */
+        .calc-btn.blink-green {
+            background-color: #a3e635 !important; /* Салатовый цвет (Tailwind lime-400) */
+            color: #14532d !important;
+            border-color: #65a30d !important;
+        }
+
+    </style>
+</head>
+<body class="w-full max-w-[1200px] mx-auto">
+    
+    <div class="w-full mb-6 mt-2 relative flex items-center justify-center">
+        <!-- Новое расположение кнопок: слева вверху -->
+        <div class="absolute left-0 flex gap-2 pl-2">
+            <button id="fitButton" class="action-button-secondary rounded px-2 sm:px-3 py-1 text-[0.7rem] sm:text-xs shadow-sm font-semibold transition-transform" data-i18n="fit">Підігнати</button>
+            <button id="simulateButton" class="action-button rounded px-2 sm:px-3 py-1 text-[0.7rem] sm:text-xs shadow-sm font-semibold transition-transform" data-i18n="start">Запустити</button>
+        </div>
+
+        <h1 class="text-xl sm:text-3xl font-extrabold text-gray-100 tracking-tight text-center px-32" data-i18n="appTitle">Симулятор Шестерень</h1>
+        
+        <div class="absolute right-0 flex gap-2 pr-2">
+            <button id="btn-uk" class="px-2 py-1 bg-blue-600 text-white rounded text-xs sm:text-sm font-bold transition-colors shadow-sm">UK</button>
+            <button id="btn-en" class="px-2 py-1 bg-gray-700 text-gray-300 hover:bg-gray-600 rounded text-xs sm:text-sm font-bold transition-colors shadow-sm opacity-60">EN</button>
+        </div>
+    </div>
+
+    <!-- Главный контейнер -->
+    <div class="flex flex-col lg:flex-row w-full gap-5">
+        
+        <!-- ЛЕВАЯ КОЛОНКА -->
+        <div class="w-full lg:w-[350px] flex flex-col gap-4 flex-shrink-0">
+            
+            <!-- Шестерня 1 -->
+            <div class="panel-block p-4">
+                <h2 class="text-sm font-bold text-blue-300 uppercase tracking-wide mb-3 flex items-center gap-2">
+                    <div class="w-2 h-2 rounded-full bg-blue-400"></div>
+                    <span data-i18n="gear1">Перша шестірня</span>
+                </h2>
+                <div class="grid grid-cols-3 gap-2">
+                    <div class="flex flex-col">
+                        <label class="text-[0.65rem] text-gray-400 uppercase tracking-wider mb-1" data-i18n="diam">Діам. (мм)</label>
+                        <input type="number" id="diameter1" value="100" min="10" class="input-field w-full px-2 py-1.5 text-sm rounded-md text-center">
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="text-[0.65rem] text-gray-400 uppercase tracking-wider mb-1 text-center" data-i18n="teeth">Зубці</label>
+                        <div class="flex rounded-md shadow-sm">
+                            <input type="number" id="teeth1" value="20" min="5" class="input-field w-full px-1 py-1.5 text-sm rounded-l-md border-r-0 text-center">
+                            <button id="calculateTeeth1Button" class="bg-gray-700 hover:bg-gray-600 text-blue-400 border border-gray-600 rounded-r-md px-2 flex items-center justify-center transition-colors calc-btn" title="Розрахувати кількість зубців">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="text-[0.65rem] text-gray-400 uppercase tracking-wider mb-1" data-i18n="length">Довж. (мм)</label>
+                        <input type="number" id="toothLength1" value="10" min="1" class="input-field w-full px-2 py-1.5 text-sm rounded-md text-center">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Шестерня 2 -->
+            <div class="panel-block p-4">
+                <h2 class="text-sm font-bold text-indigo-300 uppercase tracking-wide mb-3 flex items-center gap-2">
+                    <div class="w-2 h-2 rounded-full bg-indigo-400"></div>
+                    <span data-i18n="gear2">Друга шестірня</span>
+                </h2>
+                <div class="grid grid-cols-3 gap-2">
+                    <div class="flex flex-col">
+                        <label class="text-[0.65rem] text-gray-400 uppercase tracking-wider mb-1" data-i18n="diam">Діам. (мм)</label>
+                        <input type="number" id="diameter2" value="200" min="10" class="input-field w-full px-2 py-1.5 text-sm rounded-md text-center">
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="text-[0.65rem] text-gray-400 uppercase tracking-wider mb-1 text-center" data-i18n="teeth">Зубці</label>
+                        <div class="flex rounded-md shadow-sm">
+                            <input type="number" id="teeth2" value="40" min="5" class="input-field w-full px-1 py-1.5 text-sm rounded-l-md border-r-0 text-center">
+                            <button id="calculateTeeth2Button" class="bg-gray-700 hover:bg-gray-600 text-blue-400 border border-gray-600 rounded-r-md px-2 flex items-center justify-center transition-colors calc-btn" title="Розрахувати кількість зубців">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="text-[0.65rem] text-gray-400 uppercase tracking-wider mb-1" data-i18n="length">Довж. (мм)</label>
+                        <input type="number" id="toothLength2" value="10" min="1" class="input-field w-full px-2 py-1.5 text-sm rounded-md text-center">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Форма зубьев -->
+            <div class="panel-block p-4">
+                <label class="text-xs text-gray-400 uppercase tracking-wider mb-3 block" data-i18n="toothShape">Форма зубців</label>
+                <div class="flex flex-col gap-2">
+                    <label class="inline-flex items-center cursor-pointer">
+                        <input type="radio" name="toothShape" value="involute" class="form-radio" checked>
+                        <span class="ml-2 text-sm text-gray-300" data-i18n="involute">Евольвентна (основна)</span>
+                    </label>
+                    <label class="inline-flex items-center cursor-pointer">
+                        <input type="radio" name="toothShape" value="cycloidal" class="form-radio">
+                        <span class="ml-2 text-sm text-gray-300" data-i18n="cycloidal">Циклоїдальна (плавна)</span>
+                    </label>
+                    <label class="inline-flex items-center cursor-pointer">
+                        <input type="radio" name="toothShape" value="straight" class="form-radio">
+                        <span class="ml-2 text-sm text-gray-300" data-i18n="straight">Пряма (спрощена)</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Слайдер скорости -->
+            <div class="panel-block p-4 flex flex-col justify-center">
+                <div class="flex justify-between items-center mb-2">
+                    <label for="speedSlider" class="text-xs text-gray-400 uppercase tracking-wider" data-i18n="speed">Швидкість обертання</label>
+                </div>
+                <input type="range" id="speedSlider" min="0" max="100" value="10" class="w-full">
+            </div>
+
+            <!-- Кнопки экспорта -->
+            <div class="panel-block p-4 flex flex-col gap-2">
+                <span class="text-xs text-gray-400 uppercase tracking-wider mb-1" data-i18n="exportSVG">Експорт (SVG)</span>
+                <button id="saveGear1Button" class="action-button-secondary rounded-lg px-3 py-2 text-xs w-full shadow-sm text-left flex justify-between items-center">
+                    <span data-i18n="saveGear1">Зберегти Шестірню 1</span>
+                    <svg class="w-4 h-4 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                </button>
+                <button id="saveGear2Button" class="action-button-secondary rounded-lg px-3 py-2 text-xs w-full shadow-sm text-left flex justify-between items-center">
+                    <span data-i18n="saveGear2">Зберегти Шестірню 2</span>
+                    <svg class="w-4 h-4 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                </button>
+            </div>
+
+        </div>
+
+        <!-- ПРАВАЯ КОЛОНКА -->
+        <div class="w-full flex flex-col gap-4 flex-grow min-w-0">
+            
+            <div class="w-full relative flex-grow min-h-[300px]">
+                <canvas id="gearCanvas" class="w-full h-full object-contain absolute top-0 left-0"></canvas>
+            </div>
+
+            <div id="resultPanel" class="panel-block p-4 flex flex-col gap-3 text-sm mt-1">
+                <h3 class="text-xs text-gray-400 uppercase tracking-wider font-bold mb-1" data-i18n="techData">Технічні дані</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-4 w-full">
+                    <!-- Block 1: Modules -->
+                    <div class="flex flex-col gap-2">
+                        <div class="flex justify-between items-end border-b border-gray-700/50 pb-1 gap-2">
+                            <span class="text-gray-400 text-xs leading-tight" data-i18n="mod1">Модуль 1:</span>
+                            <span id="module1Result" class="font-mono text-blue-300 font-semibold text-xs whitespace-nowrap"></span>
+                        </div>
+                        <div class="flex justify-between items-end border-b border-gray-700/50 pb-1 gap-2">
+                            <span class="text-gray-400 text-xs leading-tight" data-i18n="mod2">Модуль 2:</span>
+                            <span id="module2Result" class="font-mono text-indigo-300 font-semibold text-xs whitespace-nowrap"></span>
+                        </div>
+                    </div>
+                    <!-- Block 2: Ratio & Distance -->
+                    <div class="flex flex-col gap-2">
+                        <div class="flex justify-between items-end border-b border-gray-700/50 pb-1 gap-2">
+                            <span class="text-gray-400 text-xs leading-tight" data-i18n="ratio">Відношення:</span>
+                            <span id="speedRatioResult" class="font-mono text-gray-200 font-semibold text-xs whitespace-nowrap text-right"></span>
+                        </div>
+                        <div class="flex justify-between items-end border-b border-gray-700/50 pb-1 gap-2">
+                            <span class="text-gray-400 text-xs leading-tight" data-i18n="centerDist">Міжосьова:</span>
+                            <span id="centerDistResult" class="font-mono text-gray-200 font-semibold text-xs whitespace-nowrap"></span>
+                        </div>
+                    </div>
+                    <!-- Block 3: Pitch & Depth -->
+                    <div class="flex flex-col gap-2">
+                        <div class="flex justify-between items-end border-b border-gray-700/50 pb-1 gap-2">
+                            <span class="text-gray-400 text-xs leading-tight" data-i18n="circPitch">Крок зубців:</span>
+                            <span id="circPitchResult" class="font-mono text-gray-200 font-semibold text-xs whitespace-nowrap"></span>
+                        </div>
+                        <div class="flex justify-between items-end border-b border-gray-700/50 pb-1 gap-2">
+                            <span class="text-gray-400 text-xs leading-tight" data-i18n="toothDepth">Висота зубця:</span>
+                            <span id="toothDepthResult" class="font-mono text-gray-200 font-semibold text-xs whitespace-nowrap"></span>
+                        </div>
+                    </div>
+                    <!-- Block 4: Pitch Diameters -->
+                    <div class="flex flex-col gap-2">
+                        <div class="flex justify-between items-end border-b border-gray-700/50 pb-1 gap-2">
+                            <span class="text-gray-400 text-xs leading-tight" data-i18n="pitchDiam1">Ділил. Д1:</span>
+                            <span id="pitchDiam1Result" class="font-mono text-blue-300 font-semibold text-xs whitespace-nowrap"></span>
+                        </div>
+                        <div class="flex justify-between items-end border-b border-gray-700/50 pb-1 gap-2">
+                            <span class="text-gray-400 text-xs leading-tight" data-i18n="pitchDiam2">Ділил. Д2:</span>
+                            <span id="pitchDiam2Result" class="font-mono text-indigo-300 font-semibold text-xs whitespace-nowrap"></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <p id="moduleWarning" class="text-red-400 font-medium text-xs hidden w-full bg-red-900/20 px-2 py-1.5 rounded mt-1" data-i18n="warning">
+                    ⚠ Увага: Модулі не збігаються
+                </p>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="messageBox" class="message-box"></div>
+
+    <script>
+        // ДИКТИОНАРЬ ПЕРЕВОДОВ
+        const translations = {
+            uk: {
+                appTitle: "Симулятор Шестерень",
+                gear1: "Перша шестірня",
+                gear2: "Друга шестірня",
+                diam: "Діам. (мм)",
+                teeth: "Зубці",
+                length: "Довж. (мм)",
+                calcTooltip: "Розрахувати кількість зубців",
+                toothShape: "Форма зубців",
+                involute: "Евольвентна (основна)",
+                cycloidal: "Циклоїдальна (плавна)",
+                straight: "Пряма (спрощена)",
+                speed: "Швидкість обертання",
+                fit: "Підігнати",
+                start: "Запустити",
+                exportSVG: "Експорт (SVG)",
+                saveGear1: "Зберегти Шестірню 1",
+                saveGear2: "Зберегти Шестірню 2",
+                techData: "Технічні дані",
+                mod1: "Модуль 1:",
+                mod2: "Модуль 2:",
+                ratio: "Відношення:",
+                centerDist: "Міжосьова:",
+                circPitch: "Крок зубців:",
+                toothDepth: "Висота зубця:",
+                pitchDiam1: "Ділил. Д1:",
+                pitchDiam2: "Ділил. Д2:",
+                warning: "⚠ Увага: Модулі не збігаються",
+                accel: "(приск.)",
+                decel: "(зниж.)",
+                errInput: "Будь ласка, введіть коректні значення для всіх полів (додатні числа).",
+                errLength: "Довжина зубця не може бути більшою або дорівнювати радіусу шестірні.",
+                errCalc1: "Введіть коректні значення (Діам 1, Діам 2, Зубці 2).",
+                errCalc2: "Введіть коректні значення (Діам 1, Зубці 1, Діам 2).",
+                calcSuccess: "Розрахунок виконано: {n} зуб.",
+                saved: 'Файл "{file}" збережено!'
+            },
+            en: {
+                appTitle: "Gear Simulator",
+                gear1: "First Gear",
+                gear2: "Second Gear",
+                diam: "Diam. (mm)",
+                teeth: "Teeth",
+                length: "Length (mm)",
+                calcTooltip: "Calculate number of teeth",
+                toothShape: "Tooth Shape",
+                involute: "Involute (Main)",
+                cycloidal: "Cycloidal (Smooth)",
+                straight: "Straight (Simplified)",
+                speed: "Rotation Speed",
+                fit: "Fit to Screen",
+                start: "Start",
+                exportSVG: "Export (SVG)",
+                saveGear1: "Save Gear 1",
+                saveGear2: "Save Gear 2",
+                techData: "Technical Data",
+                mod1: "Module 1:",
+                mod2: "Module 2:",
+                ratio: "Ratio:",
+                centerDist: "Center Dist.:",
+                circPitch: "Circ. Pitch:",
+                toothDepth: "Tooth Depth:",
+                pitchDiam1: "Pitch D1:",
+                pitchDiam2: "Pitch D2:",
+                warning: "⚠ Warning: Modules do not match",
+                accel: "(accel)",
+                decel: "(decel)",
+                errInput: "Please enter valid values for all fields (positive numbers).",
+                errLength: "Tooth length cannot be greater than or equal to the gear radius.",
+                errCalc1: "Enter valid values (Diam 1, Diam 2, Teeth 2).",
+                errCalc2: "Enter valid values (Diam 1, Teeth 1, Diam 2).",
+                calcSuccess: "Calculation completed: {n} teeth.",
+                saved: 'File "{file}" saved!'
+            }
+        };
+
+        let currentLang = 'uk';
+
+        function t(key) {
+            return translations[currentLang][key];
+        }
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            document.documentElement.lang = lang;
+
+            // Обновляем текст в HTML
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (translations[lang][key]) {
+                    el.textContent = translations[lang][key];
+                }
+            });
+
+            // Обновляем тултипы
+            document.querySelectorAll('.calc-btn').forEach(btn => {
+                btn.title = t('calcTooltip');
+            });
+
+            // Стили кнопок переключения
+            const btnUk = document.getElementById('btn-uk');
+            const btnEn = document.getElementById('btn-en');
+            
+            if (lang === 'uk') {
+                btnUk.classList.replace('bg-gray-700', 'bg-blue-600');
+                btnUk.classList.replace('text-gray-300', 'text-white');
+                btnUk.classList.remove('opacity-60');
+                
+                btnEn.classList.replace('bg-blue-600', 'bg-gray-700');
+                btnEn.classList.replace('text-white', 'text-gray-300');
+                btnEn.classList.add('opacity-60');
+            } else {
+                btnEn.classList.replace('bg-gray-700', 'bg-blue-600');
+                btnEn.classList.replace('text-gray-300', 'text-white');
+                btnEn.classList.remove('opacity-60');
+                
+                btnUk.classList.replace('bg-blue-600', 'bg-gray-700');
+                btnUk.classList.replace('text-white', 'text-gray-300');
+                btnUk.classList.add('opacity-60');
+            }
+        }
+
+        document.getElementById('btn-uk').addEventListener('click', () => { setLanguage('uk'); });
+        document.getElementById('btn-en').addEventListener('click', () => { setLanguage('en'); });
+
+        // Базовые переменные
+        let currentToothShape = 'involute';
+        let animationFrameId = null;
+        let rotationAngle1 = 0;
+        let rotationAngle2 = 0;
+        const padding = 20;
+        let scaleFactor = 1;
+        let currentRotationSpeed = 0.005;
+
+        const canvas = document.getElementById('gearCanvas');
+        const ctx = canvas.getContext('2d');
+        const diameter1Input = document.getElementById('diameter1');
+        const teeth1Input = document.getElementById('teeth1');
+        const toothLength1Input = document.getElementById('toothLength1');
+        const diameter2Input = document.getElementById('diameter2');
+        const teeth2Input = document.getElementById('teeth2');
+        const toothLength2Input = document.getElementById('toothLength2');
+        const simulateButton = document.getElementById('simulateButton');
+        const fitButton = document.getElementById('fitButton');
+        const saveGear1Button = document.getElementById('saveGear1Button');
+        const saveGear2Button = document.getElementById('saveGear2Button');
+        const module1Result = document.getElementById('module1Result');
+        const module2Result = document.getElementById('module2Result');
+        const speedRatioResult = document.getElementById('speedRatioResult');
+        const moduleWarning = document.getElementById('moduleWarning');
+        const messageBox = document.getElementById('messageBox');
+        const speedSlider = document.getElementById('speedSlider');
+        const calculateTeeth1Button = document.getElementById('calculateTeeth1Button');
+        const calculateTeeth2Button = document.getElementById('calculateTeeth2Button');
+        const toothShapeRadios = document.querySelectorAll('input[name="toothShape"]');
+
+        function showMessage(message, type = 'success') {
+            messageBox.textContent = message;
+            messageBox.className = `message-box show ${type === 'error' ? 'error' : 'success'}`;
+            setTimeout(() => {
+                messageBox.classList.remove('show');
+            }, 3000);
+        }
+
+        function getRoundedRectPath(x, y, width, height, radius) {
+            return `M${x + radius},${y} ` +
+                   `h${width - 2 * radius} ` +
+                   `a${radius},${radius} 0 0 1 ${radius},${radius} ` +
+                   `v${height - 2 * radius} ` +
+                   `a${radius},${radius} 0 0 1 -${radius},${radius} ` +
+                   `h${-width + 2 * radius} ` +
+                   `a${radius},${radius} 0 0 1 -${radius},-${radius} ` +
+                   `v${-height + 2 * radius} ` +
+                   `a${radius},${radius} 0 0 1 ${radius},-${radius} ` +
+                   `z`;
+        }
+
+        // --- ПРОФИЛИ ЗУБЬЕВ --- //
+
+        // Евольвентний
+        function getInvolutePoints(R_pitch, R_root, R_tip, teeth, isLeft) {
+            const pressureAngle = 20 * Math.PI / 180;
+            const R_base = R_pitch * Math.cos(pressureAngle);
+            const inv = a => Math.tan(a) - a;
+            const theta_w = Math.PI / (2 * teeth);
+            const theta_base = theta_w + inv(pressureAngle); 
+
+            const points = [];
+            const numSteps = 25; 
+            const R_start = Math.max(R_base, R_root);
+            
+            if (R_root < R_base) {
+                const baseAngle = isLeft ? -theta_base : theta_base;
+                points.push({x: R_root * Math.cos(baseAngle), y: R_root * Math.sin(baseAngle)});
+            }
+
+            const t_start = Math.sqrt(Math.max(0, Math.pow(R_start/R_base, 2) - 1));
+            const t_end = Math.sqrt(Math.max(0, Math.pow(R_tip/R_base, 2) - 1));
+
+            for (let i = 0; i <= numSteps; i++) {
+                const t = t_start + (t_end - t_start) * (i / numSteps);
+                const R = R_base * Math.sqrt(1 + t*t);
+                const a = Math.acos(Math.min(1, R_base / R));
+                const theta_i = inv(a);
+                
+                let angle = isLeft ? (-theta_base + theta_i) : (theta_base - theta_i);
+
+                if ((isLeft && angle > 0) || (!isLeft && angle < 0)) {
+                    points.push({x: R * Math.cos(0), y: R * Math.sin(0)});
+                    break;
+                }
+                points.push({x: R * Math.cos(angle), y: R * Math.sin(angle)});
+            }
+            if (!isLeft) points.reverse();
+            return points;
+        }
+
+        // Циклоїдальний
+        function getCycloidalPoints(R_pitch, R_root, R_tip, teeth, isLeft) {
+            const theta_w = Math.PI / (2 * teeth);
+            const points = [];
+            const numSteps = 16; 
+            const angleRoot = isLeft ? -theta_w * 1.6 : theta_w * 1.6;
+            const anglePitch = isLeft ? -theta_w : theta_w;
+            const angleTip = isLeft ? -theta_w * 0.4 : theta_w * 0.4;
+            
+            for(let i=0; i<=numSteps/2; i++) {
+                let t = i / (numSteps/2); 
+                let R = R_root + (R_pitch - R_root) * t;
+                let ease = 1 - Math.cos(t * Math.PI / 2);
+                let angle = angleRoot + (anglePitch - angleRoot) * ease;
+                points.push({x: R * Math.cos(angle), y: R * Math.sin(angle)});
+            }
+            for(let i=1; i<=numSteps/2; i++) {
+                let t = i / (numSteps/2); 
+                let R = R_pitch + (R_tip - R_pitch) * t;
+                let ease = Math.sin(t * Math.PI / 2);
+                let angle = anglePitch + (angleTip - anglePitch) * ease;
+                points.push({x: R * Math.cos(angle), y: R * Math.sin(angle)});
+            }
+            if (!isLeft) points.reverse();
+            return points;
+        }
+
+        // Прямий
+        function getStraightPoints(R_pitch, R_root, R_tip, teeth, isLeft) {
+            const pitchAngle = (Math.PI * 2) / teeth;
+            const angleRoot = isLeft ? -pitchAngle * 0.34 : pitchAngle * 0.34; 
+            const angleTip = isLeft ? -pitchAngle * 0.14 : pitchAngle * 0.14;  
+            
+            const points = [
+                {x: R_root * Math.cos(angleRoot), y: R_root * Math.sin(angleRoot)},
+                {x: R_tip * Math.cos(angleTip), y: R_tip * Math.sin(angleTip)}
+            ];
+            if (!isLeft) points.reverse();
+            return points;
+        }
+
+        // Малювання шестірні
+        function drawGear(centerX, centerY, pitchRadius, teeth, angle, gearBodyColor, isDriving = false, toothLength, shapeType) {
+            if (pitchRadius <= 0 || toothLength <= 0) return;
+
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(angle);
+
+            const addendum = toothLength / 2;
+            const dedendum = toothLength / 2;
+
+            const tipRadius = pitchRadius + addendum;
+            let rootRadius = pitchRadius - dedendum;
+            if (rootRadius <= 0) rootRadius = 1;
+
+            ctx.beginPath();
+            ctx.arc(0, 0, rootRadius, 0, Math.PI * 2);
+            ctx.fillStyle = gearBodyColor;
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            let r=100, g=100, b=100;
+            if (gearBodyColor.startsWith('#')) {
+                const hex = gearBodyColor.slice(1);
+                r = parseInt(hex.substring(0, 2), 16);
+                g = parseInt(hex.substring(2, 4), 16);
+                b = parseInt(hex.substring(4, 6), 16);
+            }
+
+            const teethR = Math.max(0, r - 30);
+            const teethG = Math.max(0, g - 30);
+            const teethB = Math.max(0, b - 30);
+
+            const teethFillColor = `rgb(${teethR}, ${teethG}, ${teethB})`;
+            const teethStrokeColor = `rgb(${Math.max(0, r - 50)}, ${Math.max(0, g - 50)}, ${Math.max(0, b - 50)})`;
+
+            const toothAngularPitch = (Math.PI * 2) / teeth;
+
+            ctx.beginPath();
+            for (let i = 0; i < teeth; i++) {
+                const centerAngle = i * toothAngularPitch;
+
+                let leftPoints, rightPoints;
+                if (shapeType === 'involute') {
+                    leftPoints = getInvolutePoints(pitchRadius, rootRadius, tipRadius, teeth, true);
+                    rightPoints = getInvolutePoints(pitchRadius, rootRadius, tipRadius, teeth, false);
+                } else if (shapeType === 'cycloidal') {
+                    leftPoints = getCycloidalPoints(pitchRadius, rootRadius, tipRadius, teeth, true);
+                    rightPoints = getCycloidalPoints(pitchRadius, rootRadius, tipRadius, teeth, false);
+                } else {
+                    leftPoints = getStraightPoints(pitchRadius, rootRadius, tipRadius, teeth, true);
+                    rightPoints = getStraightPoints(pitchRadius, rootRadius, tipRadius, teeth, false);
+                }
+
+                const rotate = (pt) => {
+                    const cosA = Math.cos(centerAngle);
+                    const sinA = Math.sin(centerAngle);
+                    return {
+                        x: pt.x * cosA - pt.y * sinA,
+                        y: pt.x * sinA + pt.y * cosA
+                    };
+                };
+
+                const lPts = leftPoints.map(rotate);
+                const rPts = rightPoints.map(rotate);
+
+                if (i === 0) {
+                    ctx.moveTo(lPts[0].x, lPts[0].y);
+                } else {
+                    ctx.lineTo(lPts[0].x, lPts[0].y);
+                }
+                
+                for(let j=1; j<lPts.length; j++) ctx.lineTo(lPts[j].x, lPts[j].y);
+                ctx.lineTo(rPts[0].x, rPts[0].y);
+                for(let j=1; j<rPts.length; j++) ctx.lineTo(rPts[j].x, rPts[j].y);
+            }
+            ctx.closePath(); 
+
+            ctx.fillStyle = teethFillColor;
+            ctx.fill();
+            ctx.strokeStyle = teethStrokeColor;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+
+            const rectSize = pitchRadius * 0.3;
+            const rectCornerRadius = rectSize * 0.2;
+            const halfRectSize = rectSize / 2;
+            
+            ctx.beginPath();
+            ctx.moveTo(-halfRectSize + rectCornerRadius, -halfRectSize);
+            ctx.lineTo(halfRectSize - rectCornerRadius, -halfRectSize);
+            ctx.arcTo(halfRectSize, -halfRectSize, halfRectSize, -halfRectSize + rectCornerRadius, rectCornerRadius);
+            ctx.lineTo(halfRectSize, halfRectSize - rectCornerRadius);
+            ctx.arcTo(halfRectSize, halfRectSize, halfRectSize - rectCornerRadius, halfRectSize, rectCornerRadius);
+            ctx.lineTo(-halfRectSize + rectCornerRadius, halfRectSize);
+            ctx.arcTo(-halfRectSize, halfRectSize, -halfRectSize, halfRectSize - rectCornerRadius, rectCornerRadius);
+            ctx.lineTo(-halfRectSize, -halfRectSize + rectCornerRadius);
+            ctx.arcTo(-halfRectSize, -halfRectSize, -halfRectSize + rectCornerRadius, -halfRectSize, rectCornerRadius);
+            ctx.closePath();
+
+            ctx.fillStyle = '#111418';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(pitchRadius * 0.65, 0, pitchRadius * 0.05, 0, Math.PI * 2);
+            ctx.fillStyle = '#9ca3af'; 
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // SVG Генератор
+        function generateGearSVGContent(pitchRadius, teeth, toothLength, gearBodyColor, shapeType) {
+            let innerSvgElements = '';
+            const addendum = toothLength / 2;
+            const dedendum = toothLength / 2;
+            const tipRadius = pitchRadius + addendum;
+            let rootRadius = pitchRadius - dedendum;
+            if (rootRadius <= 0) rootRadius = 1;
+
+            innerSvgElements += `<circle cx="0" cy="0" r="${rootRadius}" fill="${gearBodyColor}" stroke="rgba(255, 255, 255, 0.2)" stroke-width="1"/>`;
+
+            let r=100, g=100, b=100;
+            if (gearBodyColor.startsWith('#')) {
+                const hex = gearBodyColor.slice(1);
+                r = parseInt(hex.substring(0, 2), 16);
+                g = parseInt(hex.substring(2, 4), 16);
+                b = parseInt(hex.substring(4, 6), 16);
+            }
+            const teethFillColor = `rgb(${Math.max(0, r - 30)}, ${Math.max(0, g - 30)}, ${Math.max(0, b - 30)})`;
+            const teethStrokeColor = `rgb(${Math.max(0, r - 50)}, ${Math.max(0, g - 50)}, ${Math.max(0, b - 50)})`;
+
+            const toothAngularPitch = (Math.PI * 2) / teeth;
+            let pathData = '';
+
+            for (let i = 0; i < teeth; i++) {
+                const centerAngle = i * toothAngularPitch;
+
+                let leftPoints, rightPoints;
+                if (shapeType === 'involute') {
+                    leftPoints = getInvolutePoints(pitchRadius, rootRadius, tipRadius, teeth, true);
+                    rightPoints = getInvolutePoints(pitchRadius, rootRadius, tipRadius, teeth, false);
+                } else if (shapeType === 'cycloidal') {
+                    leftPoints = getCycloidalPoints(pitchRadius, rootRadius, tipRadius, teeth, true);
+                    rightPoints = getCycloidalPoints(pitchRadius, rootRadius, tipRadius, teeth, false);
+                } else {
+                    leftPoints = getStraightPoints(pitchRadius, rootRadius, tipRadius, teeth, true);
+                    rightPoints = getStraightPoints(pitchRadius, rootRadius, tipRadius, teeth, false);
+                }
+
+                const rotate = (pt) => {
+                    const cosA = Math.cos(centerAngle);
+                    const sinA = Math.sin(centerAngle);
+                    return {
+                        x: pt.x * cosA - pt.y * sinA,
+                        y: pt.x * sinA + pt.y * cosA
+                    };
+                };
+
+                const lPts = leftPoints.map(rotate);
+                const rPts = rightPoints.map(rotate);
+
+                const cmd = i === 0 ? 'M' : 'L';
+                pathData += `${cmd} ${lPts[0].x.toFixed(2)} ${lPts[0].y.toFixed(2)} `;
+                
+                for(let j=1; j<lPts.length; j++) pathData += `L ${lPts[j].x.toFixed(2)} ${lPts[j].y.toFixed(2)} `;
+                for(let j=0; j<rPts.length; j++) pathData += `L ${rPts[j].x.toFixed(2)} ${rPts[j].y.toFixed(2)} `;
+            }
+            pathData += 'Z';
+            innerSvgElements += `<path d="${pathData}" fill="${teethFillColor}" stroke="${teethStrokeColor}" stroke-width="0.5"/>`;
+
+            const rectSize = pitchRadius * 0.3;
+            const rectCornerRadius = rectSize * 0.2;
+            const halfRectSize = rectSize / 2;
+            const rectPath = getRoundedRectPath(-halfRectSize, -halfRectSize, rectSize, rectSize, rectCornerRadius);
+            innerSvgElements += `<path d="${rectPath}" fill="#111418"/>`;
+            innerSvgElements += `<circle cx="${pitchRadius * 0.65}" cy="0" r="${pitchRadius * 0.05}" fill="#9ca3af"/>`;
+
+            return `<g>${innerSvgElements}</g>`;
+        }
+
+        function saveSVG(svgContent, filename) {
+            const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showMessage(t('saved').replace('{file}', filename), 'success');
+        }
+
+        function startOrRestartAnimation() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+            rotationAngle1 = 0;
+            const Z2 = parseInt(teeth2Input.value);
+            rotationAngle2 = (isNaN(Z2) || Z2 <= 0) ? 0 : Math.PI - (Math.PI / Z2);
+            
+            animationFrameId = requestAnimationFrame(animate); 
+        }
+
+        function animate() {
+            // Використовуємо логічні розміри для правильного очищення з урахуванням devicePixelRatio
+            const logicalWidth = canvas.clientWidth || canvas.width;
+            const logicalHeight = canvas.clientHeight || canvas.height;
+            ctx.clearRect(0, 0, logicalWidth, logicalHeight);
+
+            const D1 = parseFloat(diameter1Input.value);
+            const Z1 = parseInt(teeth1Input.value);
+            const toothLength1 = parseFloat(toothLength1Input.value);
+            const D2 = parseFloat(diameter2Input.value);
+            const Z2 = parseInt(teeth2Input.value);
+            const toothLength2 = parseFloat(toothLength2Input.value);
+
+            if (isNaN(D1) || isNaN(Z1) || isNaN(Z2) || isNaN(toothLength1) || isNaN(toothLength2) || isNaN(D2) ||
+                D1 <= 0 || Z1 <= 0 || Z2 <= 0 || toothLength1 <= 0 || toothLength2 <= 0 || D2 <= 0) {
+                if (animationFrameId) {
+                    cancelAnimationFrame(animationFrameId);
+                    animationFrameId = null;
+                }
+                return;
+            }
+
+            if (toothLength1 >= D1 / 2 || toothLength2 >= D2 / 2) {
+                if (animationFrameId) {
+                    cancelAnimationFrame(animationFrameId);
+                    animationFrameId = null;
+                }
+                return;
+            }
+
+            const module1 = D1 / Z1;
+            const module2 = D2 / Z2;
+
+            module1Result.textContent = module1.toFixed(2);
+            module2Result.textContent = module2.toFixed(2);
+
+            if (Math.abs(module1 - module2) > 0.01) {
+                moduleWarning.classList.remove('hidden');
+            } else {
+                moduleWarning.classList.add('hidden');
+            }
+
+            const speedRatio = Z1 / Z2;
+            if (speedRatio > 1) {
+                speedRatioResult.textContent = `1 : ${speedRatio.toFixed(2)} ${t('accel')}`;
+            } else if (speedRatio < 1) {
+                speedRatioResult.textContent = `${(1 / speedRatio).toFixed(2)} : 1 ${t('decel')}`;
+            } else {
+                speedRatioResult.textContent = `1 : 1`;
+            }
+
+            // Додаткові параметри
+            const centerDistance = (D1 + D2) / 2;
+            const circularPitch = Math.PI * module1;
+
+            document.getElementById('centerDistResult').textContent = centerDistance.toFixed(2) + ' мм';
+            document.getElementById('circPitchResult').textContent = circularPitch.toFixed(2) + ' мм';
+            document.getElementById('toothDepthResult').textContent = toothLength1.toFixed(2) + ' мм';
+            document.getElementById('pitchDiam1Result').textContent = D1.toFixed(2) + ' мм';
+            document.getElementById('pitchDiam2Result').textContent = D2.toFixed(2) + ' мм';
+
+            const scaledD1 = D1 * scaleFactor;
+            const scaledD2 = D2 * scaleFactor;
+            const scaledToothLength1 = toothLength1 * scaleFactor;
+            const scaledToothLength2 = toothLength2 * scaleFactor;
+
+            const maxRadius1 = D1 / 2 + toothLength1 / 2;
+            const maxRadius2 = D2 / 2 + toothLength2 / 2;
+            const pitchDistance = D1 / 2 + D2 / 2;
+
+            const scaledPitchDistance = pitchDistance * scaleFactor;
+            const scaledMaxRadius1 = maxRadius1 * scaleFactor;
+            const scaledMaxRadius2 = maxRadius2 * scaleFactor;
+
+            const assemblyCenterX = (scaledPitchDistance + scaledMaxRadius2 - scaledMaxRadius1) / 2;
+
+            const centerX1 = logicalWidth / 2 - assemblyCenterX;
+            const centerX2 = centerX1 + scaledPitchDistance;
+            const centerY = logicalHeight / 2;
+
+            const gearColor1 = '#64748b'; // Зроблено світлішим (slate-500)
+            const gearColor2 = '#94a3b8';
+
+            drawGear(centerX1, centerY, scaledD1 / 2, Z1, rotationAngle1, gearColor1, true, scaledToothLength1, currentToothShape);
+            drawGear(centerX2, centerY, scaledD2 / 2, Z2, rotationAngle2, gearColor2, false, scaledToothLength2, currentToothShape);
+
+            rotationAngle1 += currentRotationSpeed;
+            rotationAngle2 -= currentRotationSpeed * speedRatio;
+
+            animationFrameId = requestAnimationFrame(animate); 
+        }
+
+        const adjustCanvasSize = (resetAnimation = false) => {
+            const container = canvas.parentElement;
+            
+            // Логічні розміри в CSS-пікселях
+            const logicalWidth = container.clientWidth;
+            const logicalHeight = logicalWidth * 0.65; 
+
+            // Фізичні розміри з урахуванням щільності пікселів екрану (High-DPI / Retina)
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = logicalWidth * dpr;
+            canvas.height = logicalHeight * dpr;
+            canvas.style.width = `${logicalWidth}px`;
+            canvas.style.height = `${logicalHeight}px`;
+
+            // Масштабуємо контекст для чіткого відмальовування
+            ctx.setTransform(1, 0, 0, 1, 0, 0); // Скидаємо попередні трансформації
+            ctx.scale(dpr, dpr);
+
+            const D1 = parseFloat(diameter1Input.value);
+            const Z1 = parseFloat(teeth1Input.value);
+            const toothLength1 = parseFloat(toothLength1Input.value);
+            const D2 = parseFloat(diameter2Input.value);
+            const Z2 = parseFloat(teeth2Input.value);
+            const toothLength2 = parseFloat(toothLength2Input.value);
+
+            if (isNaN(D1) || isNaN(Z1) || isNaN(Z2) || isNaN(toothLength1) || isNaN(toothLength2) || isNaN(D2) ||
+                D1 <= 0 || Z1 <= 0 || Z2 <= 0 || toothLength1 <= 0 || toothLength2 <= 0 || D2 <= 0) {
+                scaleFactor = 1;
+                return;
+            }
+
+            const maxRadius1 = D1 / 2 + toothLength1 / 2;
+            const maxRadius2 = D2 / 2 + toothLength2 / 2;
+            const pitchDistance = D1 / 2 + D2 / 2;
+            
+            const requiredTotalWidth = pitchDistance + maxRadius1 + maxRadius2;
+            const maxRequiredHeight = Math.max(maxRadius1, maxRadius2) * 2;
+
+            const effectiveMaxAllowedWidth = Math.max(1, logicalWidth - padding * 3);
+            const effectiveMaxAllowedHeight = Math.max(1, logicalHeight - padding * 2);
+
+            scaleFactor = Math.min(
+                effectiveMaxAllowedWidth / requiredTotalWidth,
+                effectiveMaxAllowedHeight / maxRequiredHeight
+            );
+            scaleFactor = Math.max(0.01, scaleFactor);
+
+            if (resetAnimation) {
+                startOrRestartAnimation(); 
+            }
+        };
+
+        fitButton.addEventListener('click', () => {
+            adjustCanvasSize(false);
+        });
+
+        simulateButton.addEventListener('click', () => {
+            adjustCanvasSize(true);
+        });
+
+        speedSlider.addEventListener('input', () => {
+            currentRotationSpeed = parseFloat(speedSlider.value) / 100 * 0.05;
+        });
+
+        toothShapeRadios.forEach(radio => {
+            radio.addEventListener('change', (event) => {
+                currentToothShape = event.target.value;
+                adjustCanvasSize(false); 
+            });
+        });
+
+        saveGear1Button.addEventListener('click', () => {
+            const D1 = parseFloat(diameter1Input.value);
+            const Z1 = parseInt(teeth1Input.value);
+            const toothLength1 = parseFloat(toothLength1Input.value);
+            const gearColor1 = '#64748b'; // Також оновлюємо колір для експорту в SVG
+
+            if (isNaN(D1) || isNaN(Z1) || isNaN(toothLength1) || D1 <= 0 || Z1 <= 0 || toothLength1 <= 0) {
+                showMessage(t('errInput'), 'error');
+                return;
+            }
+
+            const exportMaxRadius = D1 / 2 + toothLength1 / 2;
+            const svgSize1 = exportMaxRadius * 2;
+            const svgContentGroup = generateGearSVGContent(D1 / 2, Z1, toothLength1, gearColor1, currentToothShape);
+            
+            const fullSVG = `<svg width="${svgSize1}" height="${svgSize1}" viewBox="${-exportMaxRadius} ${-exportMaxRadius} ${svgSize1} ${svgSize1}" xmlns="http://www.w3.org/2000/svg">` + svgContentGroup + `</svg>`;
+            saveSVG(fullSVG, `gear_1_D${D1.toFixed(0)}_Z${Z1}_${currentToothShape}.svg`);
+        });
+
+        saveGear2Button.addEventListener('click', () => {
+            const D2 = parseFloat(diameter2Input.value);
+            const Z2 = parseInt(teeth2Input.value);
+            const toothLength2 = parseFloat(toothLength2Input.value);
+            const gearColor2 = '#94a3b8';
+
+            if (isNaN(D2) || isNaN(Z2) || isNaN(toothLength2) || D2 <= 0 || Z2 <= 0 || toothLength2 <= 0) {
+                showMessage(t('errInput'), 'error');
+                return;
+            }
+
+            const exportMaxRadius = D2 / 2 + toothLength2 / 2;
+            const svgSize2 = exportMaxRadius * 2;
+            const svgContentGroup = generateGearSVGContent(D2 / 2, Z2, toothLength2, gearColor2, currentToothShape);
+            
+            const fullSVG = `<svg width="${svgSize2}" height="${svgSize2}" viewBox="${-exportMaxRadius} ${-exportMaxRadius} ${svgSize2} ${svgSize2}" xmlns="http://www.w3.org/2000/svg">` + svgContentGroup + `</svg>`;
+            saveSVG(fullSVG, `gear_2_D${D2.toFixed(0)}_Z${Z2}_${currentToothShape}.svg`);
+        });
+
+        calculateTeeth1Button.addEventListener('click', () => {
+            const D1 = parseFloat(diameter1Input.value);
+            const D2 = parseFloat(diameter2Input.value);
+            const Z2 = parseInt(teeth2Input.value);
+
+            if (isNaN(D1) || isNaN(D2) || isNaN(Z2) || D1 <= 0 || D2 <= 0 || Z2 <= 0) {
+                showMessage(t('errCalc1'), 'error');
+                return;
+            }
+
+            const module2 = D2 / Z2;
+            const calculatedZ1 = Math.round(D1 / module2);
+            
+            const exactD1 = calculatedZ1 * module2;
+            if (Math.abs(exactD1 - D1) > 0.001) {
+                diameter1Input.value = parseFloat(exactD1.toFixed(2));
+            }
+
+            teeth1Input.value = calculatedZ1;
+            adjustCanvasSize(true);
+            showMessage(t('calcSuccess').replace('{n}', calculatedZ1), 'success');
+        });
+
+        calculateTeeth2Button.addEventListener('click', () => {
+            const D1 = parseFloat(diameter1Input.value);
+            const Z1 = parseInt(teeth1Input.value);
+            const D2 = parseFloat(diameter2Input.value);
+
+            if (isNaN(D1) || isNaN(Z1) || isNaN(D2) || D1 <= 0 || Z1 <= 0 || D2 <= 0) {
+                showMessage(t('errCalc2'), 'error');
+                return;
+            }
+
+            const module1 = D1 / Z1;
+            const calculatedZ2 = Math.round(D2 / module1);
+            
+            const exactD2 = calculatedZ2 * module1;
+            if (Math.abs(exactD2 - D2) > 0.001) {
+                diameter2Input.value = parseFloat(exactD2.toFixed(2));
+            }
+
+            teeth2Input.value = calculatedZ2;
+            adjustCanvasSize(true);
+            showMessage(t('calcSuccess').replace('{n}', calculatedZ2), 'success');
+        });
+
+        // --- АВТОМАТИЧЕСКИЙ ПЕРЕСЧЕТ ---
+        let typingTimer1;
+        let typingTimer2;
+        const doneTypingInterval = 1000; // Задержка 1 секунда
+
+        function flashButton(btn) {
+            btn.classList.add('blink-green');
+            setTimeout(() => {
+                btn.classList.remove('blink-green');
+            }, 400); // Кнопка возвращает свой цвет через 400мс
+        }
+
+        // Слушатель для ввода зубьев 1-й шестерни (считает 2-ю)
+        teeth1Input.addEventListener('input', () => {
+            clearTimeout(typingTimer1);
+            if (teeth1Input.value) {
+                typingTimer1 = setTimeout(() => {
+                    flashButton(calculateTeeth2Button);
+                    calculateTeeth2Button.click();
+                }, doneTypingInterval);
+            }
+        });
+
+        // Слушатель для ввода зубьев 2-й шестерни (считает 1-ю)
+        teeth2Input.addEventListener('input', () => {
+            clearTimeout(typingTimer2);
+            if (teeth2Input.value) {
+                typingTimer2 = setTimeout(() => {
+                    flashButton(calculateTeeth1Button);
+                    calculateTeeth1Button.click();
+                }, doneTypingInterval);
+            }
+        });
+
+        // Синхронізація довжини зубців (Синхронизация длины зубьев)
+        toothLength1Input.addEventListener('input', () => {
+            toothLength2Input.value = toothLength1Input.value;
+            adjustCanvasSize(false);
+        });
+
+        toothLength2Input.addEventListener('input', () => {
+            toothLength1Input.value = toothLength2Input.value;
+            adjustCanvasSize(false);
+        });
+
+        window.onload = function() {
+            setLanguage('uk');
+
+            const checkedRadio = document.querySelector('input[name="toothShape"]:checked');
+            if (checkedRadio) {
+                currentToothShape = checkedRadio.value;
+            }
+
+            currentRotationSpeed = parseFloat(speedSlider.value) / 100 * 0.05;
+            adjustCanvasSize(true);
+            
+            let resizeTimer;
+            window.addEventListener('resize', () => {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(() => adjustCanvasSize(false), 100);
+            });
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Airfoil Simulator</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        body { margin: 0; padding: 0; background-color: #020617; } /* slate-950 */
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Извлекаем хуки из глобального объекта React
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        // --- Словник перекладів / Translations ---
+        const i18n = {
+          UK: {
+            title: "Симулятор Аеродинаміки",
+            subtitle: "Редагуйте полігони Безьє для зміни профілю",
+            presets: "Пресети:",
+            presetClassic: "Класичний профіль",
+            presetGlider: "Профіль сучасного планера",
+            presetBoeing: "Профіль комерційного авіалайнера",
+            downloadSVG: "Завантажити SVG",
+            downloadSVGTitle: "Завантажити профіль у форматі SVG",
+            myProfiles: "Мої профілі (ПКМ - перезаписати)",
+            slotLoad: "Завантажити (ЛКМ) / Перезаписати (ПКМ)",
+            slotSave: "Зберегти поточний",
+            slotClear: "Очистити слот",
+            stall: "ЗВАЛЮВАННЯ (STALL)",
+            envCond: "Умови середовища",
+            aoa: "Кут атаки (AoA)",
+            airspeed: "Швидкість потоку",
+            speedUnit: "м/с",
+            geometry: "Геометрія",
+            leRadius: "Округлення пер. крайки",
+            aspectRatio: "Видовження крила (AR)",
+            arTooltip: "Відношення розмаху крила до його середньої хорди. Довгі вузькі крила (як у планера) мають менший індуктивний опір.",
+            maxThickness: "Макс. товщина",
+            camber: "Кривина",
+            showPoints: "Відображати точки",
+            showVectors: "Відображати вектори",
+            forceLift: "Вектор підйомної сили",
+            forceDrag: "Вектор опору",
+            polyTop: "Верхній полігон",
+            polyBottom: "Нижній полігон",
+            planform: "Вигляд крила зверху (Видовження:",
+            lift: "Підйомна сила (L)",
+            liftDesc: "Корисна сила, що утримує літак у повітрі. Виникає через різницю тисків над і під крилом. Прямо пропорційна квадрату швидкості.",
+            drag: "Опір (D)",
+            dragDesc: "Шкідлива сила, що гальмує рух. Складається з тертя повітря об форму крила та індуктивного опору (завихрень на кінцях крила).",
+            ldRatio: "Аерод. якість (L/D)",
+            ldDesc: "Відношення підйомної сили до опору. Головний показник ефективності. Планер з якістю 40 може пролетіти 40 км вперед, втративши всього 1 км висоти.",
+            cl: "Коеф. Підйомної (Cl)",
+            clDesc: "Безрозмірний коефіцієнт. Показує, наскільки ефективно сама геометрія профілю та поточний кут атаки генерують підйомну силу.",
+            cd: "Коеф. Опору (Cd)",
+            cdDesc: "Безрозмірний коефіцієнт лобового опору форми профілю. Різко зростає при зриві потоку (звалюванні).",
+            forceUnit: "Н"
+          },
+          EN: {
+            title: "Airfoil Simulator",
+            subtitle: "Edit Bezier polygons to change the airfoil shape",
+            presets: "Presets:",
+            presetClassic: "Classic airfoil",
+            presetGlider: "Modern glider airfoil",
+            presetBoeing: "Commercial airliner airfoil",
+            downloadSVG: "Download SVG",
+            downloadSVGTitle: "Download profile as SVG",
+            myProfiles: "My profiles (RMB - overwrite)",
+            slotLoad: "Load (LMB) / Overwrite (RMB)",
+            slotSave: "Save current",
+            slotClear: "Clear slot",
+            stall: "STALL WARNING",
+            envCond: "Environment",
+            aoa: "Angle of Attack (AoA)",
+            airspeed: "Airspeed",
+            speedUnit: "m/s",
+            geometry: "Geometry",
+            leRadius: "LE Radius",
+            aspectRatio: "Aspect Ratio (AR)",
+            arTooltip: "Ratio of wingspan to its mean chord. Long, narrow wings (like a glider) have less induced drag.",
+            maxThickness: "Max Thickness",
+            camber: "Camber",
+            showPoints: "Show Points",
+            showVectors: "Show Vectors",
+            forceLift: "Lift vector",
+            forceDrag: "Drag vector",
+            polyTop: "Top polygon",
+            polyBottom: "Bottom polygon",
+            planform: "Wing planform (Aspect Ratio:",
+            lift: "Lift Force (L)",
+            liftDesc: "The upward force that keeps the aircraft in the air. Caused by the pressure difference above and below the wing. Proportional to the square of airspeed.",
+            drag: "Drag Force (D)",
+            dragDesc: "The backward force that resists motion. Consists of skin friction, form drag, and induced drag (wingtip vortices).",
+            ldRatio: "Lift-to-Drag (L/D)",
+            ldDesc: "Ratio of lift to drag. The main measure of aerodynamic efficiency. A glider with an L/D of 40 can glide 40 km forward for every 1 km of altitude lost.",
+            cl: "Lift Coef. (Cl)",
+            clDesc: "Dimensionless coefficient. Indicates how effectively the airfoil geometry and current angle of attack generate lift.",
+            cd: "Drag Coef. (Cd)",
+            cdDesc: "Dimensionless drag coefficient of the airfoil shape. Increases sharply during a stall.",
+            forceUnit: "N"
+          }
+        };
+
+        // --- Физические и математические константы ---
+        const AIR_DENSITY = 1.225; // Плотность воздуха, кг/м^3
+        const WING_AREA = 1.0; // Базовая площадь крыла для расчетов (хорда 1м * размах 1м)
+        const CHORD_LENGTH = 1.0; // Длина хорды
+
+        // Вспомогательная функция для кривой Безье 5-го порядка
+        const quinticBezier = (t, p0, p1, p2, p3, p4, p5) => {
+          const u = 1 - t;
+          const t2 = t * t;
+          const u2 = u * u;
+          const t3 = t2 * t;
+          const u3 = u2 * u;
+          const t4 = t3 * t;
+          const u4 = u3 * u;
+          const t5 = t4 * t;
+          const u5 = u4 * u;
+
+          return {
+            x: u5 * p0.x + 5 * u4 * t * p1.x + 10 * u3 * t2 * p2.x + 10 * u2 * t3 * p3.x + 5 * u * t4 * p4.x + t5 * p5.x,
+            y: u5 * p0.y + 5 * u4 * t * p1.y + 10 * u3 * t2 * p2.y + 10 * u2 * t3 * p3.y + 5 * u * t4 * p4.y + t5 * p5.y
+          };
+        };
+
+        // Векторная математика
+        const dist = (p1, p2) => Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        const rotatePoint = (p, cx, cy, angleRad) => {
+          const cos = Math.cos(angleRad);
+          const sin = Math.sin(angleRad);
+          return {
+            x: cos * (p.x - cx) - sin * (p.y - cy) + cx,
+            y: sin * (p.x - cx) + cos * (p.y - cy) + cy,
+          };
+        };
+
+        const StatBox = ({ label, value, unit, isWarning, description }) => (
+          <div className={`relative group p-3 rounded-lg flex flex-col items-center justify-center bg-slate-800 border ${isWarning ? 'border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' : 'border-slate-700'}`}>
+            <span className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider mb-1 text-center leading-tight min-h-[28px] flex items-center">{label}</span>
+            <div className={`text-xl font-bold ${isWarning ? 'text-red-400' : 'text-slate-100'}`}>
+              {typeof value === 'number' ? value.toFixed(2) : value} <span className="text-sm font-normal text-slate-500">{unit}</span>
+            </div>
+            {description && (
+              <>
+                <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400 cursor-help group-hover:bg-blue-500 group-hover:text-white transition-colors">?</div>
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 pb-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                  <div className="relative w-48 p-3 bg-slate-900 border border-slate-700 text-slate-300 text-xs rounded-lg shadow-xl text-center">
+                    {description}
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-700"></div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        );
+
+        function App() {
+          const canvasRef = useRef(null);
+          const requestRef = useRef();
+          
+          const [lang, setLang] = useState('UK');
+          const t = i18n[lang];
+
+          const [aoa, setAoa] = useState(5);
+          const [airspeed, setAirspeed] = useState(50);
+          const [leRadius, setLeRadius] = useState(0.015);
+          const [aspectRatio, setAspectRatio] = useState(7.5);
+          const [showControls, setShowControls] = useState(true);
+          const [showVectors, setShowVectors] = useState(true);
+          
+          const [savedSlots, setSavedSlots] = useState(() => {
+            try {
+              const item = localStorage.getItem('airfoil_slots');
+              return item ? JSON.parse(item) : Array(10).fill(null);
+            } catch (e) {
+              return Array(10).fill(null);
+            }
+          });
+
+          useEffect(() => {
+            localStorage.setItem('airfoil_slots', JSON.stringify(savedSlots));
+          }, [savedSlots]);
+
+          const handleSaveSlot = (index) => {
+            const newSlots = [...savedSlots];
+            newSlots[index] = { controlPoints, leRadius };
+            setSavedSlots(newSlots);
+          };
+
+          const handleLoadSlot = (index) => {
+            const slot = savedSlots[index];
+            if (slot) {
+              setControlPoints(slot.controlPoints);
+              setLeRadius(slot.leRadius);
+            }
+          };
+
+          const handleClearSlot = (e, index) => {
+            e.stopPropagation();
+            const newSlots = [...savedSlots];
+            newSlots[index] = null;
+            setSavedSlots(newSlots);
+          };
+
+          const handleDownloadSVG = () => {
+            const resolution = 200;
+            const scale = 1000;
+            const cx = 550;
+            const cy = 150;
+            const LE = { x: -0.5, y: 0 };
+            const TE = { x: 0.5, y: 0 };
+
+            const topCurve = [];
+            const bottomCurve = [];
+
+            for (let i = 0; i <= resolution; i++) {
+              const t = i / resolution;
+              topCurve.push(quinticBezier(t, LE, {x: -0.5, y: leRadius}, controlPoints.u1, controlPoints.u2, controlPoints.u3, TE));
+              bottomCurve.push(quinticBezier(t, LE, {x: -0.5, y: -leRadius}, controlPoints.l1, controlPoints.l2, controlPoints.l3, TE));
+            }
+
+            const formatNum = (num) => Number(num.toFixed(3));
+
+            let pathD = `M ${formatNum(cx + topCurve[0].x * scale)} ${formatNum(cy - topCurve[0].y * scale)}`;
+            for (let i = 1; i <= resolution; i++) {
+              pathD += ` L ${formatNum(cx + topCurve[i].x * scale)} ${formatNum(cy - topCurve[i].y * scale)}`;
+            }
+            for (let i = resolution - 1; i >= 0; i--) {
+              pathD += ` L ${formatNum(cx + bottomCurve[i].x * scale)} ${formatNum(cy - bottomCurve[i].y * scale)}`;
+            }
+            pathD += ' Z';
+
+            const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 300">
+          <path d="${pathD}" fill="none" stroke="#000000" stroke-width="2"/>
+        </svg>`;
+
+            const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'airfoil_profile.svg';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+          };
+
+          const defaultPoints = {
+            u1: { x: -0.30, y: 0.11 },
+            u2: { x: -0.05, y: 0.12 },
+            u3: { x: 0.25, y: 0.05 },
+            l1: { x: -0.30, y: -0.04 },
+            l2: { x: -0.05, y: -0.02 },
+            l3: { x: 0.25, y: -0.005 }
+          };
+
+          const gliderPoints = {
+            u1: { x: -0.20, y: 0.10 },
+            u2: { x: 0.10, y: 0.10 },
+            u3: { x: 0.35, y: 0.03 },
+            l1: { x: -0.20, y: -0.02 },
+            l2: { x: 0.10, y: -0.01 },
+            l3: { x: 0.35, y: -0.01 }
+          };
+
+          const boeingPoints = {
+            u1: { x: -0.25, y: 0.13 },
+            u2: { x: 0.05, y: 0.12 },
+            u3: { x: 0.30, y: 0.05 },
+            l1: { x: -0.25, y: -0.06 },
+            l2: { x: 0.05, y: -0.03 },
+            l3: { x: 0.30, y: -0.01 }
+          };
+
+          const [controlPoints, setControlPoints] = useState(defaultPoints);
+          const [metrics, setMetrics] = useState({
+            lift: 0, drag: 0, cl: 0, cd: 0, ldRatio: 0, thickness: 0, camber: 0, stalled: false
+          });
+
+          const dragState = useRef({ dragging: null, startX: 0, startY: 0 });
+          const particles = useRef([]);
+          const canvasSize = useRef({ w: 0, h: 0 });
+          
+          const initParticles = (width, height) => {
+            const newParticles = [];
+            const count = 300;
+            for (let i = 0; i < count; i++) {
+              newParticles.push({
+                x: Math.random() * width,
+                y: (Math.random() * height * 1.5) - height * 0.25,
+                vx: 0, vy: 0,
+                life: Math.random() * 100,
+                history: []
+              });
+            }
+            particles.current = newParticles;
+          };
+
+          const animate = () => {
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            
+            const rect = canvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            const cssWidth = rect.width;
+            const cssHeight = rect.height;
+
+            if (canvas.width !== Math.floor(cssWidth * dpr) || canvas.height !== Math.floor(cssHeight * dpr)) {
+              canvas.width = Math.floor(cssWidth * dpr);
+              canvas.height = Math.floor(cssHeight * dpr);
+              canvasSize.current = { w: cssWidth, h: cssHeight };
+              initParticles(cssWidth, cssHeight);
+            }
+
+            ctx.save();
+            ctx.scale(dpr, dpr);
+            ctx.clearRect(0, 0, cssWidth, cssHeight);
+            
+            const width = cssWidth;
+            const height = cssHeight;
+            
+            const scale = Math.min(width, height) * 0.75; 
+            const cx = width / 2;
+            const cy = height / 2;
+            const aoaRad = (aoa * Math.PI) / 180;
+            
+            const LE = { x: -0.5, y: 0 };
+            const TE = { x: 0.5, y: 0 };
+            const quarterChord = { x: -0.25, y: 0 };
+            
+            const topCurve = [];
+            const bottomCurve = [];
+            const resolution = 40;
+            
+            for (let i = 0; i <= resolution; i++) {
+              const tParam = i / resolution;
+              topCurve.push(quinticBezier(tParam, LE, {x: -0.5, y: leRadius}, controlPoints.u1, controlPoints.u2, controlPoints.u3, TE));
+              bottomCurve.push(quinticBezier(tParam, LE, {x: -0.5, y: -leRadius}, controlPoints.l1, controlPoints.l2, controlPoints.l3, TE));
+            }
+            
+            let maxThickness = 0.001;
+            let maxCamber = 0;
+            let camberIntegral = 0;
+            
+            for (let i = 1; i <= resolution; i++) {
+              const thickness = topCurve[i].y - bottomCurve[i].y;
+              const camber = (topCurve[i].y + bottomCurve[i].y) / 2;
+              
+              if (thickness > maxThickness) maxThickness = thickness;
+              if (Math.abs(camber) > Math.abs(maxCamber)) maxCamber = camber;
+              camberIntegral += camber / resolution;
+            }
+            
+            const alphaZeroLift = -160 * camberIntegral; 
+            const effectiveAoa = aoa - alphaZeroLift;
+            
+            let cl = 2 * Math.PI * (effectiveAoa * Math.PI / 180);
+            
+            const stallAnglePos = 10 + (maxThickness * 60) - (camberIntegral * 50); 
+            const stallAngleNeg = -10 - (maxThickness * 60) - (camberIntegral * 50);
+            
+            let isStalled = false;
+            
+            if (effectiveAoa > stallAnglePos) {
+              isStalled = true;
+              const overStall = effectiveAoa - stallAnglePos;
+              cl = cl * Math.max(0.3, Math.exp(-overStall * 0.15));
+            } else if (effectiveAoa < stallAngleNeg) {
+              isStalled = true;
+              const overStall = Math.abs(effectiveAoa - stallAngleNeg);
+              cl = cl * Math.max(0.3, Math.exp(-overStall * 0.15));
+            }
+            
+            const cdProfile = 0.008 + (maxThickness * maxThickness * 0.8) + (Math.abs(maxCamber) * 0.05);
+            const oswaldEfficiency = 0.85;
+            const cdInduced = (cl * cl) / (Math.PI * oswaldEfficiency * aspectRatio);
+            
+            let cdStall = 0;
+            if (isStalled) {
+              const aoaRadInner = aoa * Math.PI / 180;
+              cdStall = 1.28 * Math.sin(aoaRadInner) * Math.sin(aoaRadInner);
+            }
+            
+            let cd = cdProfile + cdInduced + cdStall;
+            if (cd < 0.001) cd = 0.001;
+
+            const liftForce = 0.5 * AIR_DENSITY * airspeed * airspeed * WING_AREA * cl;
+            const dragForce = 0.5 * AIR_DENSITY * airspeed * airspeed * WING_AREA * cd;
+
+            if (Math.random() < 0.1) {
+              setMetrics({
+                lift: liftForce, drag: dragForce, cl, cd, ldRatio: Math.abs(cl/cd),
+                thickness: maxThickness, camber: maxCamber, stalled: isStalled
+              });
+            }
+
+            const polygon = [];
+            const rotatedQChord = rotatePoint({ x: cx + quarterChord.x * scale, y: cy + quarterChord.y * scale }, cx, cy, aoaRad);
+            
+            for (let i = 0; i <= resolution; i++) {
+              let p = { x: cx + topCurve[i].x * scale, y: cy - topCurve[i].y * scale };
+              polygon.push(rotatePoint(p, cx, cy, aoaRad));
+            }
+            for (let i = resolution - 1; i >= 0; i--) {
+              let p = { x: cx + bottomCurve[i].x * scale, y: cy - bottomCurve[i].y * scale };
+              polygon.push(rotatePoint(p, cx, cy, aoaRad));
+            }
+
+            ctx.lineWidth = 1.0;
+            const baseSpeed = airspeed * 0.1;
+            const circulation = cl * baseSpeed * 20;
+
+            particles.current.forEach(p => {
+              p.history.push({x: p.x, y: p.y});
+              if (p.history.length > 15) p.history.shift();
+
+              let vx = baseSpeed;
+              let vy = 0;
+
+              const dx = p.x - rotatedQChord.x;
+              const dy = p.y - rotatedQChord.y;
+              const r2 = dx * dx + dy * dy;
+              
+              if (r2 > 100) {
+                const vTheta = (circulation / (2 * Math.PI * Math.sqrt(r2)));
+                vx += -vTheta * (dy / Math.sqrt(r2));
+                vy += vTheta * (dx / Math.sqrt(r2));
+              }
+
+              let minDist = Infinity;
+              let nx = 0, ny = 0;
+              for (let i = 0; i < polygon.length; i++) {
+                const p1 = polygon[i];
+                const p2 = polygon[(i + 1) % polygon.length];
+                
+                const l2 = dist(p1, p2) ** 2;
+                if (l2 === 0) continue;
+                let tParam = ((p.x - p1.x) * (p2.x - p1.x) + (p.y - p1.y) * (p2.y - p1.y)) / l2;
+                tParam = Math.max(0, Math.min(1, tParam));
+                const projX = p1.x + tParam * (p2.x - p1.x);
+                const projY = p1.y + tParam * (p2.y - p1.y);
+                
+                const d = dist(p, {x: projX, y: projY});
+                if (d < minDist) {
+                  minDist = d;
+                  nx = (p.x - projX) / d;
+                  ny = (p.y - projY) / d;
+                }
+              }
+
+              const boundaryLayer = isStalled ? 40 : 15;
+              if (minDist < boundaryLayer) {
+                const pushForce = (boundaryLayer - minDist) * 0.5;
+                p.x += nx * pushForce;
+                p.y += ny * pushForce;
+                vx *= 0.8; 
+                vy *= 0.8;
+              }
+
+              p.x += vx;
+              p.y += vy;
+              p.life--;
+
+              if (p.x > width + 50 || p.life <= 0) {
+                p.x = -50;
+                p.y = (Math.random() * height * 1.5) - height * 0.25;
+                p.history = [];
+                p.life = 100 + Math.random() * 100;
+              }
+
+              if (p.history.length > 1) {
+                ctx.beginPath();
+                ctx.moveTo(p.history[0].x, p.history[0].y);
+                for (let i = 1; i < p.history.length; i++) {
+                  ctx.lineTo(p.history[i].x, p.history[i].y);
+                }
+                const speed = Math.hypot(vx, vy);
+                const hue = Math.max(180, 240 - (speed / baseSpeed) * 60);
+                const alpha = p.life < 20 ? (p.life / 20) * 0.12 : 0.12;
+                ctx.strokeStyle = `hsla(${hue}, 60%, 55%, ${alpha})`;
+                ctx.stroke();
+              }
+            });
+
+            ctx.beginPath();
+            ctx.moveTo(polygon[0].x, polygon[0].y);
+            for (let i = 1; i < polygon.length; i++) {
+              ctx.lineTo(polygon[i].x, polygon[i].y);
+            }
+            ctx.closePath();
+            
+            ctx.fillStyle = isStalled ? 'rgba(239, 68, 68, 0.8)' : 'rgba(148, 163, 184, 0.9)';
+            ctx.fill();
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            if (cl !== 0 && showVectors) {
+              const forceScale = 0.05;
+              ctx.lineWidth = 4;
+              
+              ctx.beginPath();
+              ctx.moveTo(rotatedQChord.x, rotatedQChord.y);
+              ctx.lineTo(rotatedQChord.x, rotatedQChord.y - liftForce * forceScale);
+              ctx.strokeStyle = '#3b82f6';
+              ctx.stroke();
+              
+              ctx.beginPath();
+              ctx.moveTo(rotatedQChord.x, rotatedQChord.y);
+              ctx.lineTo(rotatedQChord.x + dragForce * forceScale * 5, rotatedQChord.y);
+              ctx.strokeStyle = '#ef4444';
+              ctx.stroke();
+            }
+
+            if (showControls) {
+              const drawControlPolygon = (pointsArr, color) => {
+                const screenPts = pointsArr.map(pt => {
+                  let spt = { x: cx + pt.x * scale, y: cy - pt.y * scale };
+                  return rotatePoint(spt, cx, cy, aoaRad);
+                });
+
+                ctx.beginPath();
+                ctx.moveTo(screenPts[0].x, screenPts[0].y);
+                for (let i = 1; i < screenPts.length; i++) {
+                  ctx.lineTo(screenPts[i].x, screenPts[i].y);
+                }
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 4]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+              };
+
+              drawControlPolygon([LE, {x: -0.5, y: leRadius}, controlPoints.u1, controlPoints.u2, controlPoints.u3, TE], '#ef4444');
+              drawControlPolygon([LE, {x: -0.5, y: -leRadius}, controlPoints.l1, controlPoints.l2, controlPoints.l3, TE], '#3b82f6');
+
+              const drawControlPoint = (key, pt, color) => {
+                let screenPt = { x: cx + pt.x * scale, y: cy - pt.y * scale };
+                screenPt = rotatePoint(screenPt, cx, cy, aoaRad);
+
+                ctx.beginPath();
+                ctx.arc(screenPt.x, screenPt.y, dragState.current.dragging === key ? 9 : 6, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+              };
+
+              ['u1', 'u2', 'u3'].forEach(k => drawControlPoint(k, controlPoints[k], '#ef4444'));
+              ['l1', 'l2', 'l3'].forEach(k => drawControlPoint(k, controlPoints[k], '#3b82f6'));
+            }
+
+            let planformSpan = width * 0.7;
+            let planformChord = planformSpan / aspectRatio;
+            
+            const maxChord = 60; 
+            if (planformChord > maxChord) {
+              planformChord = maxChord;
+              planformSpan = planformChord * aspectRatio;
+            }
+
+            const planformY = height - planformChord / 2 - 20;
+
+            ctx.fillStyle = 'rgba(148, 163, 184, 0.1)'; 
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)';
+            ctx.lineWidth = 1;
+
+            const r = Math.min(planformChord / 2, 5); 
+            const px = cx - planformSpan / 2;
+            const py = planformY - planformChord / 2;
+            const pw = planformSpan;
+            const ph = planformChord;
+
+            ctx.beginPath();
+            ctx.moveTo(px + r, py);
+            ctx.lineTo(px + pw - r, py);
+            ctx.quadraticCurveTo(px + pw, py, px + pw, py + r);
+            ctx.lineTo(px + pw, py + ph - r);
+            ctx.quadraticCurveTo(px + pw, py + ph, px + pw - r, py + ph);
+            ctx.lineTo(px + r, py + ph);
+            ctx.quadraticCurveTo(px, py + ph, px, py + ph - r);
+            ctx.lineTo(px, py + r);
+            ctx.quadraticCurveTo(px, py, px + r, py);
+            ctx.closePath();
+            
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(cx, py - 5);
+            ctx.lineTo(cx, py + ph + 5);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.setLineDash([4, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            ctx.fillStyle = 'rgba(148, 163, 184, 0.5)';
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${t.planform} ${aspectRatio.toFixed(1)})`, cx, py - 8);
+
+            ctx.restore();
+            requestRef.current = requestAnimationFrame(animate);
+          };
+
+          useEffect(() => {
+            requestRef.current = requestAnimationFrame(animate);
+            return () => cancelAnimationFrame(requestRef.current);
+          }, [controlPoints, aoa, airspeed, leRadius, aspectRatio, showControls, showVectors, lang]);
+
+          const getCanvasMetrics = () => {
+            const rect = canvasRef.current.getBoundingClientRect();
+            return {
+              cx: rect.width / 2,
+              cy: rect.height / 2,
+              scale: Math.min(rect.width, rect.height) * 0.75
+            };
+          };
+
+          const getMousePos = (e) => {
+            const rect = canvasRef.current.getBoundingClientRect();
+            return {
+              x: e.clientX - rect.left,
+              y: e.clientY - rect.top
+            };
+          };
+
+          const handlePointerDown = (e) => {
+            if (!showControls) return; 
+            
+            const pos = getMousePos(e);
+            const { cx, cy, scale } = getCanvasMetrics();
+            const aoaRad = (aoa * Math.PI) / 180; 
+
+            for (const [key, pt] of Object.entries(controlPoints)) {
+              let screenPt = { x: cx + pt.x * scale, y: cy - pt.y * scale };
+              screenPt = rotatePoint(screenPt, cx, cy, aoaRad);
+
+              if (dist(pos, screenPt) < 15) {
+                dragState.current = { 
+                  dragging: key, 
+                  screenOffsetX: screenPt.x - pos.x, 
+                  screenOffsetY: screenPt.y - pos.y 
+                };
+                return;
+              }
+            }
+          };
+
+          const handlePointerMove = (e) => {
+            if (!dragState.current.dragging) return;
+            const pos = getMousePos(e);
+            const key = dragState.current.dragging;
+            
+            const { cx, cy, scale } = getCanvasMetrics();
+            
+            const targetScreenX = pos.x + dragState.current.screenOffsetX;
+            const targetScreenY = pos.y + dragState.current.screenOffsetY;
+
+            const invAoaRad = -(aoa * Math.PI) / 180;
+            const unrotated = rotatePoint({ x: targetScreenX, y: targetScreenY }, cx, cy, invAoaRad);
+            
+            let nx = (unrotated.x - cx) / scale;
+            let ny = -(unrotated.y - cy) / scale;
+
+            setControlPoints(prev => {
+              const minGap = 0.04; 
+              let minX = -0.45;
+              let maxX = 0.45;
+
+              if (key === 'u1') { maxX = prev.u2.x - minGap; }
+              if (key === 'u2') { minX = prev.u1.x + minGap; maxX = prev.u3.x - minGap; }
+              if (key === 'u3') { minX = prev.u2.x + minGap; }
+
+              if (key === 'l1') { maxX = prev.l2.x - minGap; }
+              if (key === 'l2') { minX = prev.l1.x + minGap; maxX = prev.l3.x - minGap; }
+              if (key === 'l3') { minX = prev.l2.x + minGap; }
+
+              nx = Math.max(minX, Math.min(nx, maxX));
+
+              if (key.startsWith('u')) ny = Math.max(0.01, Math.min(ny, 0.45));
+              if (key.startsWith('l')) ny = Math.max(-0.45, Math.min(ny, -0.01));
+
+              return { ...prev, [key]: { x: nx, y: ny } };
+            });
+          };
+
+          const handlePointerUp = () => {
+            dragState.current.dragging = null;
+          };
+
+          return (
+            <div className="flex flex-col h-screen bg-slate-950 text-slate-200 font-sans overflow-hidden">
+              <header className="px-6 py-4 bg-slate-900 border-b border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 z-10">
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-4">
+                    <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-teal-400">
+                      {t.title}
+                    </h1>
+                    <div className="flex bg-slate-800 rounded-lg p-0.5 border border-slate-700">
+                      <button 
+                        onClick={() => setLang('UK')}
+                        className={`px-2 py-1 text-xs font-bold rounded-md transition-colors ${lang === 'UK' ? 'bg-blue-500 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                      >UK</button>
+                      <button 
+                        onClick={() => setLang('EN')}
+                        className={`px-2 py-1 text-xs font-bold rounded-md transition-colors ${lang === 'EN' ? 'bg-blue-500 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                      >EN</button>
+                    </div>
+                  </div>
+                  <p className="text-sm text-slate-400 mt-1">{t.subtitle}</p>
+                </div>
+                
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-2 border-r border-slate-800 pr-6 mr-1 hidden sm:flex">
+                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mr-1">
+                      {t.presets}
+                    </span>
+                    <button 
+                      onClick={() => { setControlPoints(defaultPoints); setLeRadius(0.015); setAspectRatio(7.5); }}
+                      className="h-8 px-3 flex items-center justify-center whitespace-nowrap bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-lg border border-slate-600 transition-colors"
+                      title={t.presetClassic}
+                    >NACA 2412</button>
+                    <button 
+                      onClick={() => { setControlPoints(gliderPoints); setLeRadius(0.008); setAspectRatio(25.0); }}
+                      className="h-8 px-3 flex items-center justify-center whitespace-nowrap bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-lg border border-slate-600 transition-colors"
+                      title={t.presetGlider}
+                    >Planer</button>
+                    <button 
+                      onClick={() => { setControlPoints(boeingPoints); setLeRadius(0.020); setAspectRatio(9.5); }}
+                      className="h-8 px-3 flex items-center justify-center whitespace-nowrap bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-lg border border-slate-600 transition-colors"
+                      title={t.presetBoeing}
+                    >Boeing 737</button>
+                  </div>
+
+                  <button
+                    onClick={handleDownloadSVG}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-lg border border-slate-600 transition-colors"
+                    title={t.downloadSVGTitle}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    {t.downloadSVG}
+                  </button>
+
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                      {t.myProfiles}
+                    </span>
+                    <div className="flex gap-1.5">
+                      {savedSlots.map((slot, i) => (
+                        <div
+                          key={i}
+                          className={`group relative w-8 h-8 rounded flex items-center justify-center text-xs font-bold transition-all cursor-pointer border ${
+                            slot ? 'bg-blue-900/40 border-blue-500 text-blue-300 hover:bg-blue-800/60' : 'bg-slate-800 border-slate-700 text-slate-500 hover:bg-slate-700 hover:text-slate-300 border-dashed'
+                          }`}
+                          onClick={() => slot ? handleLoadSlot(i) : handleSaveSlot(i)}
+                          title={slot ? `Слот ${i + 1}: ${t.slotLoad}` : `Слот ${i + 1}: ${t.slotSave}`}
+                          onContextMenu={(e) => { e.preventDefault(); handleSaveSlot(i); }}
+                        >
+                          {i + 1}
+                          {slot && (
+                            <button
+                              className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-400 shadow-lg"
+                              onClick={(e) => handleClearSlot(e, i)}
+                              title={t.slotClear}
+                            >×</button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {metrics.stalled && (
+                    <div className="px-4 py-1.5 bg-red-900/50 border border-red-500/50 text-red-400 rounded-full text-sm font-bold animate-pulse flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                      <span className="hidden sm:inline">{t.stall}</span>
+                    </div>
+                  )}
+                </div>
+              </header>
+
+              <div className="flex flex-1 relative overflow-hidden">
+                <aside className="w-80 bg-slate-900 border-r border-slate-800 p-6 flex flex-col gap-6 z-10 overflow-y-auto shadow-xl">
+                  <div className="space-y-6">
+                    <h2 className="text-lg font-bold border-b border-slate-700 pb-2">{t.envCond}</h2>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <label className="text-sm font-medium text-slate-300">{t.aoa}</label>
+                        <span className="text-blue-400 font-mono font-bold">{aoa}°</span>
+                      </div>
+                      <input 
+                        type="range" min="-15" max="30" step="0.5" 
+                        value={aoa} onChange={(e) => setAoa(parseFloat(e.target.value))}
+                        className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                      />
+                      <div className="flex justify-between text-xs text-slate-500 font-mono">
+                        <span>-15°</span><span>0°</span><span>30°</span>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <label className="text-sm font-medium text-slate-300">{t.airspeed}</label>
+                        <span className="text-teal-400 font-mono font-bold">{airspeed} {t.speedUnit}</span>
+                      </div>
+                      <input 
+                        type="range" min="10" max="300" step="1" 
+                        value={airspeed} onChange={(e) => setAirspeed(parseFloat(e.target.value))}
+                        className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-teal-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 pt-4">
+                    <h2 className="text-lg font-bold border-b border-slate-700 pb-2">{t.geometry}</h2>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <label className="text-sm font-medium text-slate-300">{t.leRadius}</label>
+                        <span className="text-purple-400 font-mono font-bold">{(leRadius * 100).toFixed(1)}</span>
+                      </div>
+                      <input 
+                        type="range" min="0" max="0.1" step="0.005" 
+                        value={leRadius} onChange={(e) => setLeRadius(parseFloat(e.target.value))}
+                        className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <div className="relative group flex items-center gap-1.5">
+                          <label className="text-sm font-medium text-slate-300">{t.aspectRatio}</label>
+                          <div className="w-4 h-4 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400 cursor-help group-hover:bg-blue-500 group-hover:text-white transition-colors">?</div>
+                          <div className="absolute bottom-full left-0 pb-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                            <div className="relative w-56 p-3 bg-slate-900 border border-slate-700 text-slate-300 text-xs rounded-lg shadow-xl text-left">
+                              {t.arTooltip}
+                              <div className="absolute top-full left-6 -translate-x-1/2 border-[5px] border-transparent border-t-slate-700"></div>
+                            </div>
+                          </div>
+                        </div>
+                        <span className="text-indigo-400 font-mono font-bold">{aspectRatio.toFixed(1)}</span>
+                      </div>
+                      <input 
+                        type="range" min="4" max="35" step="0.5" 
+                        value={aspectRatio} onChange={(e) => setAspectRatio(parseFloat(e.target.value))}
+                        className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <StatBox label={t.maxThickness} value={metrics.thickness * 100} unit="%" />
+                      <StatBox label={t.camber} value={metrics.camber * 100} unit="%" />
+                    </div>
+
+                    <div className="flex flex-col gap-3 py-3 border-t border-b border-slate-700/50 my-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-slate-300">{t.showPoints}</span>
+                        <button 
+                          onClick={() => setShowControls(!showControls)}
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${showControls ? 'bg-blue-500' : 'bg-slate-700'}`}
+                        >
+                          <span className="inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform" style={{ transform: showControls ? 'translateX(18px)' : 'translateX(4px)' }} />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-slate-300">{t.showVectors}</span>
+                        <button 
+                          onClick={() => setShowVectors(!showVectors)}
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${showVectors ? 'bg-blue-500' : 'bg-slate-700'}`}
+                        >
+                          <span className="inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform" style={{ transform: showVectors ? 'translateX(18px)' : 'translateX(4px)' }} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </aside>
+
+                <main className="flex-1 relative cursor-crosshair bg-slate-950">
+                  <canvas
+                    ref={canvasRef}
+                    className="absolute inset-0 w-full h-full"
+                    onPointerDown={handlePointerDown}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerUp}
+                    onPointerLeave={handlePointerUp}
+                  />
+                  <div className="absolute top-4 right-4 bg-slate-900/80 p-3 rounded-lg border border-slate-800 backdrop-blur-sm pointer-events-none text-xs text-slate-400 space-y-2">
+                    {showVectors && (
+                      <>
+                        <div className="flex items-center gap-2"><div className="w-4 h-0.5 bg-blue-500"></div> {t.forceLift}</div>
+                        <div className="flex items-center gap-2"><div className="w-4 h-0.5 bg-red-500"></div> {t.forceDrag}</div>
+                      </>
+                    )}
+                    {showControls && (
+                      <>
+                        <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500 border border-white"></div> {t.polyTop}</div>
+                        <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500 border border-white"></div> {t.polyBottom}</div>
+                      </>
+                    )}
+                  </div>
+                </main>
+              </div>
+
+              <footer className="bg-slate-900 border-t border-slate-800 p-4 z-10">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 max-w-6xl mx-auto">
+                  <StatBox label={t.lift} value={metrics.lift} unit={t.forceUnit} isWarning={metrics.stalled} description={t.liftDesc} />
+                  <StatBox label={t.drag} value={metrics.drag} unit={t.forceUnit} description={t.dragDesc} />
+                  <StatBox label={t.ldRatio} value={metrics.ldRatio} unit="" isWarning={metrics.stalled} description={t.ldDesc} />
+                  <StatBox label={t.cl} value={metrics.cl} unit="" isWarning={metrics.stalled} description={t.clDesc} />
+                  <div className="col-span-2 md:col-span-1">
+                    <StatBox label={t.cd} value={metrics.cd} unit="" description={t.cdDesc} />
+                  </div>
+                </div>
+              </footer>
+            </div>
+          );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

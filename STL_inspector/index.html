@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D STL Weight & Volume Calc</title>
+    <style>
+        /* ==========================================
+           CSS СТИЛИ И ПЕРЕМЕННЫЕ
+           ========================================== */
+        :root {
+            /* Палитра */
+            --bg-color: #0f172a;
+            --glass-bg: rgba(30, 41, 59, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --primary: #06b6d4;
+            --secondary: #8b5cf6;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --success: #10b981;
+            --error: #ef4444;
+            
+            /* Шрифты */
+            --font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            
+            /* Анимации */
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(6, 182, 212, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* Шапка */
+        header {
+            padding: 20px 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--glass-border);
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(8px);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        header svg {
+            width: 40px;
+            height: 40px;
+            fill: none;
+            stroke: var(--primary);
+            stroke-width: 2;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        /* Переключатель языков */
+        .lang-switcher {
+            display: flex;
+            gap: 4px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 4px;
+            border-radius: 10px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .lang-btn {
+            background: transparent;
+            color: var(--text-muted);
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: var(--transition);
+            width: auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .lang-btn svg {
+            width: 18px;
+            height: auto;
+            border-radius: 2px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+            opacity: 0.7;
+            transition: var(--transition);
+        }
+
+        .lang-btn.active svg {
+            opacity: 1;
+        }
+
+        .lang-btn:hover {
+            color: var(--text-main);
+        }
+
+        .lang-btn.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 2px 8px rgba(6, 182, 212, 0.4);
+        }
+
+        /* ЕДИНОЕ ОКНО ПРИЛОЖЕНИЯ (Dashboard) */
+        main.dashboard-panel {
+            flex: 1;
+            margin: 32px auto;
+            width: calc(100% - 64px);
+            max-width: 1400px;
+            display: grid;
+            /* Левая - шире (440), Правая - уже (260) */
+            grid-template-columns: 440px 1fr 260px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        /* Боковые панели */
+        .side-panel {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            background: rgba(0, 0, 0, 0.15);
+        }
+
+        .left-panel { border-right: 1px solid var(--glass-border); z-index: 2; }
+        .right-panel { border-left: 1px solid var(--glass-border); z-index: 2; }
+
+        /* Зона загрузки (Компактная) */
+        .drop-zone {
+            border: 2px dashed rgba(6, 182, 212, 0.4);
+            border-radius: 12px;
+            padding: 12px 20px;
+            text-align: left;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 16px;
+            min-height: 76px;
+            background: rgba(6, 182, 212, 0.03);
+        }
+
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: var(--primary);
+            background: rgba(6, 182, 212, 0.1);
+        }
+
+        .drop-zone svg { width: 32px; height: 32px; stroke: var(--primary); flex-shrink: 0; }
+        
+        .drop-text {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1;
+        }
+
+        .drop-title {
+            color: var(--text-main);
+            font-size: 0.9rem;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+
+        .drop-desc {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            line-height: 1.2;
+        }
+
+        #file-input { display: none; }
+
+        /* Информация о файле */
+        .file-info {
+            display: none;
+            flex-direction: column;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 24px;
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
+            gap: 20px;
+        }
+
+        .file-info h3 {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: 110px 1fr; 
+            gap: 12px 16px;
+            align-items: center;
+            font-size: 0.9rem;
+        }
+
+        .info-label { color: var(--text-muted); text-align: right; }
+        .info-value { color: var(--text-main); font-weight: 500; text-align: left; }
+
+        .panel-divider { border: none; border-top: 1px dashed rgba(255, 255, 255, 0.1); margin: 4px 0; }
+
+        /* Итоговый вес */
+        .inner-weight-frame {
+            border: 1px solid var(--secondary);
+            background: rgba(139, 92, 246, 0.08);
+            border-radius: 12px;
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            box-shadow: inset 0 0 20px rgba(139, 92, 246, 0.05);
+            width: 100%;
+        }
+
+        .inner-weight-frame h3 { color: var(--secondary); font-size: 0.8rem; margin-bottom: 8px; }
+        .inner-weight-frame .result-value {
+            font-size: 3rem; font-weight: 800; color: var(--secondary);
+            text-shadow: 0 2px 10px rgba(139, 92, 246, 0.3); line-height: 1;
+        }
+
+        /* 3D Вьювер */
+        .viewer-container {
+            position: relative;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1;
+        }
+
+        /* Контейнер для кнопок управления превью */
+        .viewer-controls {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            display: flex;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        /* Кнопки управления (Глаз, Сетка) */
+        .ctrl-btn {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 8px;
+            cursor: pointer;
+            color: var(--text-muted);
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .ctrl-btn:hover {
+            background: rgba(6, 182, 212, 0.15);
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .ctrl-btn.active {
+            color: var(--primary);
+            background: rgba(6, 182, 212, 0.15);
+            border-color: var(--primary);
+        }
+
+        .ctrl-btn svg {
+            width: 20px;
+            height: 20px;
+            stroke: currentColor;
+            stroke-width: 2;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        /* Слайдер зума */
+        .zoom-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 0 12px;
+            height: 38px;
+        }
+
+        .zoom-container svg {
+            width: 16px;
+            height: 16px;
+            stroke: var(--text-muted);
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .zoom-slider {
+            -webkit-appearance: none;
+            width: 100px;
+            background: transparent;
+            outline: none;
+        }
+
+        .zoom-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 14px;
+            width: 14px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            margin-top: -5px;
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
+        }
+
+        .zoom-slider::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+        }
+
+        /* Добавлено position: absolute, top: 0, left: 0 для предотвращения бесконечного растягивания окна */
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+        
+        .viewer-placeholder { 
+            position: absolute; 
+            color: var(--text-muted); 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            text-align: center; 
+        }
+        
+        .viewer-placeholder svg { width: 64px; height: 64px; stroke: var(--glass-border); margin-bottom: 16px; }
+
+        /* Сетка категорий материалов (2 колонки для узкой панели) */
+        .category-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .category-btn {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 14px 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: var(--transition);
+            color: var(--text-muted);
+            width: 100%;
+        }
+
+        .category-btn:hover { border-color: var(--primary); background: rgba(6, 182, 212, 0.05); color: var(--text-main); transform: translateY(-2px); }
+        .category-btn.active { background: rgba(6, 182, 212, 0.15); border-color: var(--primary); color: var(--primary); }
+
+        .category-btn svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+        .category-btn span { font-size: 0.75rem; text-align: center; font-weight: 500; }
+
+        select, input[type="number"] {
+            width: 100%; padding: 12px 16px; background-color: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--glass-border); color: var(--text-main); border-radius: 8px;
+            font-family: var(--font-family); font-size: 1rem; outline: none; appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 16px center; background-size: 16px;
+        }
+
+        .loader {
+            display: none; width: 24px; height: 24px; border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%; border-top-color: var(--primary); animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media (max-width: 1000px) {
+            main.dashboard-panel { grid-template-columns: 1fr; grid-template-rows: auto 500px auto; overflow: visible; background: transparent; border: none; box-shadow: none; }
+            .side-panel { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 20px; margin-bottom: 24px; }
+            .viewer-container { border-radius: 20px; border: 1px solid var(--glass-border); height: 500px; margin-bottom: 24px; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-left">
+            <svg viewBox="0 0 24 24">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+            </svg>
+            <h1>STL Weight & Volume Calc</h1>
+        </div>
+        <div class="lang-switcher">
+            <button class="lang-btn active" id="btn-en">
+                <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="60" height="30" fill="#012169"/>
+                    <path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/>
+                    <path d="M0,0 L60,30 M60,0 L0,30" stroke="#C8102E" stroke-width="4"/>
+                    <path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/>
+                    <path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/>
+                </svg>
+                EN
+            </button>
+            <button class="lang-btn" id="btn-uk">
+                <svg viewBox="0 0 24 16" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="24" height="8" fill="#0057B7"/>
+                    <rect y="8" width="24" height="8" fill="#FFDD00"/>
+                </svg>
+                UKR
+            </button>
+            <button class="lang-btn" id="btn-ru" style="color: #000 !important; font-weight: 800;">
+                RU
+            </button>
+        </div>
+    </header>
+
+    <main class="dashboard-panel">
+        <!-- Левая панель: Файл и Характеристики (440px) -->
+        <aside class="side-panel left-panel">
+            <div class="drop-zone" id="drop-zone">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <div class="drop-text">
+                    <span class="drop-title" data-i18n="dropTitle">Drag & Drop STL</span>
+                    <span class="drop-desc" data-i18n="dropDesc">or click to browse</span>
+                </div>
+                <div class="loader" id="loader"></div>
+            </div>
+            <input type="file" id="file-input" accept=".stl">
+
+            <div class="file-info" id="file-info">
+                <h3 data-i18n="modelDetails">Model Details</h3>
+                <div class="details-grid">
+                    <span class="info-label" data-i18n="lblFile">File:</span>
+                    <span class="info-value" id="ui-filename">-</span>
+                    <span class="info-label" data-i18n="lblSize">Size:</span>
+                    <span class="info-value" id="ui-filesize">-</span>
+                    <span class="info-label" data-i18n="lblObjects">Objects:</span>
+                    <span class="info-value" id="ui-objects">-</span>
+                    <span class="info-label" data-i18n="lblPolygons">Polygons:</span>
+                    <span class="info-value" id="ui-triangles">-</span>
+                    <span class="info-label" data-i18n="lblBounds">Dimensions:</span>
+                    <span class="info-value" id="ui-bounds">-</span>
+                    <span class="info-label" style="color: var(--primary);" data-i18n="lblVolume">Volume:</span>
+                    <div class="info-value">
+                        <div id="val-volume-mm" style="color: var(--primary); font-weight: 700;">0 mm³</div>
+                        <div id="val-volume-cm" style="color: var(--text-muted); font-size: 0.85rem;">0 cm³</div>
+                    </div>
+                </div>
+                <hr class="panel-divider">
+                <div class="inner-weight-frame">
+                    <h3 data-i18n="lblWeight">Total Weight</h3>
+                    <div class="result-value" id="val-weight">0 <span style="font-size: 1.2rem; opacity: 0.7;">g</span></div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Центр: 3D Вьювер -->
+        <div class="viewer-container">
+            <div class="viewer-controls">
+                <!-- Кнопка переключения (Глаз) -->
+                <button class="ctrl-btn" id="preview-toggle" data-i18n-title="titlePreview" title="Toggle 3D Preview">
+                    <svg id="icon-eye-off" viewBox="0 0 24 24">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                        <line x1="1" y1="1" x2="23" y2="23"></line>
+                    </svg>
+                    <svg id="icon-eye" style="display: none;" viewBox="0 0 24 24">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                </button>
+                
+                <!-- Кнопка переключения сетки (Wireframe) -->
+                <button class="ctrl-btn" id="wireframe-toggle" data-i18n-title="titleWireframe" title="Toggle Wireframe">
+                    <svg viewBox="0 0 24 24">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="3" y1="9" x2="21" y2="9"></line>
+                        <line x1="3" y1="15" x2="21" y2="15"></line>
+                        <line x1="9" y1="3" x2="9" y2="21"></line>
+                        <line x1="15" y1="3" x2="15" y2="21"></line>
+                    </svg>
+                </button>
+                
+                <!-- Слайдер зума -->
+                <div class="zoom-container" data-i18n-title="titleZoom" title="Zoom In / Out (or mouse wheel)">
+                    <svg viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        <line x1="11" y1="8" x2="11" y2="14"></line>
+                        <line x1="8" y1="11" x2="14" y2="11"></line>
+                    </svg>
+                    <!-- Изменен min="0.2" на min="0.5" -->
+                    <input type="range" class="zoom-slider" id="zoom-slider" min="0.5" max="5.0" step="0.1" value="1.0">
+                </div>
+            </div>
+            
+            <div class="viewer-placeholder" id="viewer-placeholder">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                    <polyline points="2 17 12 22 22 17"></polyline>
+                    <polyline points="2 12 12 17 22 12"></polyline>
+                </svg>
+                <p id="placeholder-text" data-i18n="previewOff">3D Preview Disabled</p>
+            </div>
+            <canvas id="glcanvas" style="display: none;"></canvas>
+        </div>
+
+        <!-- Правая панель: Материалы (260px) -->
+        <aside class="side-panel right-panel">
+            <h3 data-i18n="matSettings" style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1px; text-align: center;">Material Settings</h3>
+            <div class="category-grid">
+                <!-- Катушка филамента -->
+                <button class="category-btn active" data-cat="plastics">
+                    <svg viewBox="0 0 24 24" stroke-width="1.2">
+                        <ellipse cx="12" cy="7" rx="9" ry="3.5" />
+                        <ellipse cx="12" cy="7" rx="2.2" ry="0.9" />
+                        <path d="M10.5 5.5l-1.2-1.2h3.4l-1.2 1.2z" />
+                        <path d="M15 6l1.2-.4.4 1.2-1.2.4z" />
+                        <path d="M14 9l0.8 1.2-1.8.4-0.8-1.2z" />
+                        <path d="M10 9l-0.8 1.2 1.8.4 0.8-1.2z" />
+                        <path d="M7.5 7.5l-1.2-1.2 1.8-.4 0.4 1.2z" />
+                        <path d="M3.5 8.5v6c0 1.9 3.8 3.5 8.5 3.5s8.5-1.6 8.5-3.5v-6" />
+                        <path d="M3.5 11c0 1.9 3.8 3.5 8.5 3.5s8.5-1.6 8.5-3.5" />
+                        <path d="M3.5 13.5c0 1.9 3.8 3.5 8.5 3.5s8.5-1.6 8.5-3.5" />
+                        <path d="M3.5 10c-3.5 0-3.5 5.5 0 5.5" />
+                    </svg>
+                    <span data-i18n="catPlastics">Plastics</span>
+                </button>
+                <button class="category-btn" data-cat="pureMetals">
+                    <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+                    <span data-i18n="catPureMetals">Pure Metals</span>
+                </button>
+                <button class="category-btn" data-cat="metalAlloys">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                    <span data-i18n="catMetalAlloys">Alloys</span>
+                </button>
+                <button class="category-btn" data-cat="wood">
+                    <svg viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 22c1.25-1.25 3-2.5 5-2.5"></path></svg>
+                    <span data-i18n="catWood">Wood</span>
+                </button>
+                <button class="category-btn" data-cat="precious">
+                    <svg viewBox="0 0 24 24"><path d="M6 3h12l4 6-10 13L2 9Z"></path><path d="M11 3 8 9l4 13"></path><path d="M13 3l3 6-4 13"></path><path d="M2 9h20"></path></svg>
+                    <span data-i18n="catPrecious">Jewelry</span>
+                </button>
+                <button class="category-btn" data-cat="custom">
+                    <svg viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+                    <span data-i18n="catCustom">Custom</span>
+                </button>
+            </div>
+            <div class="material-group" id="material-select-group">
+                <label for="material-type" data-i18n="lblMat">Option</label>
+                <select id="material-type"></select>
+            </div>
+            <div class="material-group" id="custom-density-group" style="display: none;">
+                <label for="custom-density" data-i18n="lblDens">Density (g/cm³)</label>
+                <input type="number" id="custom-density" step="0.01" min="0.01" value="1.00">
+            </div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); text-align: right;" id="density-display">Density: 1.24 g/cm³</p>
+        </aside>
+    </main>
+
+    <script>
+        // --- i18n & DATABASE ---
+        let currentLang = 'en';
+        const i18n = {
+            en: { dropTitle: "Drag & Drop STL", dropDesc: "or click to browse", modelDetails: "Model Details", lblFile: "File:", lblSize: "Size:", lblObjects: "Objects:", lblPolygons: "Polygons:", lblBounds: "Dimensions:", lblVolume: "Volume", lblWeight: "Total Weight", viewerText: "3D Model Viewer", previewOff: "3D Preview Disabled", matSettings: "Material Settings", lblMat: "Material Option", lblDens: "Density (g/cm³)", catPlastics: "Plastics", catPureMetals: "Pure Metals", catMetalAlloys: "Alloys", catWood: "Wood", catPrecious: "Precious", catCustom: "Custom", densityPrefix: "Density: ", errNotStl: "Please upload an .STL file", errRead: "Error reading STL file.", titlePreview: "Toggle 3D Preview", titleWireframe: "Toggle Wireframe", titleZoom: "Zoom In / Out (or mouse wheel)" },
+            uk: { dropTitle: "Перетягніть STL", dropDesc: "або клікніть для вибору", modelDetails: "Деталі моделі", lblFile: "Файл:", lblSize: "Розмір:", lblObjects: "Об'єкти:", lblPolygons: "Полігони:", lblBounds: "Габарити:", lblVolume: "Об'єм", lblWeight: "Підсумкова Вага", viewerText: "3D Перегляд моделі", previewOff: "3D Прев'ю вимкнено", matSettings: "Налаштування матеріалу", lblMat: "Сплав / Вид", lblDens: "Щільність (г/см³)", catPlastics: "Пластик", catPureMetals: "Чисті метали", catMetalAlloys: "Сплави", catWood: "Дерево", catPrecious: "Ювелірні", catCustom: "Власна", densityPrefix: "Щільність: ", errNotStl: "Будь ласка, завантажте .STL файл", errRead: "Помилка читання STL файлу.", titlePreview: "Увімкнути/вимкнути 3D прев'ю", titleWireframe: "Показати/Приховати сітку полігонів", titleZoom: "Наближення / Віддалення (або коліщатком миші)" },
+            ru: { dropTitle: "Перетащите STL", dropDesc: "или кликните для выбора", modelDetails: "Детали модели", lblFile: "Файл:", lblSize: "Размер:", lblObjects: "Объекты:", lblPolygons: "Полигоны:", lblBounds: "Габариты:", lblVolume: "Объем", lblWeight: "Итоговый Вес", viewerText: "3D Просмотр модели", previewOff: "3D Превью отключено", matSettings: "Настройки материала", lblMat: "Сплав / Вид", lblDens: "Плотность (г/см³)", catPlastics: "Пластик", catPureMetals: "Металлы", catMetalAlloys: "Сплавы", catWood: "Дерево", catPrecious: "Ювелирные", catCustom: "Своя", densityPrefix: "Плотность: ", errNotStl: "Пожалуйста, загрузите .STL файл", errRead: "Ошибка чтения STL файла.", titlePreview: "Включить/отключить 3D превью", titleWireframe: "Показать/Скрыть сетку полигонов", titleZoom: "Приближение / Отдаление (или колесиком мыши)" }
+        };
+
+        const materialsDB = {
+            plastics: [
+                { density: 1.24, en: "PLA", uk: "PLA", ru: "PLA" },
+                { density: 1.04, en: "ABS", uk: "ABS", ru: "ABS" },
+                { density: 1.27, en: "PETG", uk: "PETG", ru: "PETG" },
+                { density: 1.21, en: "TPU (Flex)", uk: "TPU (Flex)", ru: "TPU (Flex)" },
+                { density: 1.14, en: "Nylon", uk: "Нейлон (Nylon)", ru: "Нейлон (Nylon)" },
+                { density: 1.10, en: "Resin (Standard)", uk: "Фотополімерна смола", ru: "Фотополимерная смола" },
+                { density: 1.20, en: "Polycarbonate (PC)", uk: "Полікарбонат (PC)", ru: "Поликарбонат (PC)" }
+            ],
+            pureMetals: [
+                { density: 2.70, en: "Aluminum", uk: "Алюміній", ru: "Алюминий" },
+                { density: 8.96, en: "Copper", uk: "Мідь", ru: "Медь" },
+                { density: 4.50, en: "Titanium", uk: "Титан", ru: "Титан" },
+                { density: 1.74, en: "Magnesium", uk: "Магній", ru: "Магний" },
+                { density: 7.14, en: "Zinc", uk: "Цинк", ru: "Цинк" },
+                { density: 11.34, en: "Lead", uk: "Свинець", ru: "Свинец" },
+                { density: 8.90, en: "Nickel", uk: "Нікель", ru: "Никель" },
+                { density: 8.90, en: "Cobalt", uk: "Кобальт", ru: "Кобальт" },
+                { density: 19.25, en: "Tungsten", uk: "Вольфрам", ru: "Вольфрам" },
+                { density: 7.31, en: "Tin", uk: "Олово", ru: "Олово" },
+                { density: 9.78, en: "Bismuth", uk: "Вісмут", ru: "Висмут" },
+                { density: 7.87, en: "Iron", uk: "Залізо", ru: "Железо" },
+                { density: 7.19, en: "Chromium", uk: "Хром", ru: "Хром" },
+                { density: 10.22, en: "Molybdenum", uk: "Молібден", ru: "Молибден" },
+                { density: 6.11, en: "Vanadium", uk: "Ванадій", ru: "Ванадий" },
+                { density: 8.57, en: "Niobium", uk: "Ніобій", ru: "Ниобий" },
+                { density: 16.69, en: "Tantalum", uk: "Тантал", ru: "Тантал" },
+                { density: 6.52, en: "Zirconium", uk: "Цирконій", ru: "Цирконий" },
+                { density: 7.21, en: "Manganese", uk: "Марганець", ru: "Марганец" }
+            ],
+            metalAlloys: [
+                { density: 2.70, en: "Aluminum 6061", uk: "Алюміній 6061", ru: "Алюминий 6061" },
+                { density: 2.81, en: "Aluminum 7075", uk: "Алюміній 7075", ru: "Алюминий 7075" },
+                { density: 2.70, en: "Aluminum 6082", uk: "Алюміній 6082", ru: "Алюминий 6082" },
+                { density: 2.68, en: "Aluminum 5052 (Sheet/Mill)", uk: "Алюміній 5052 (Фрезерування)", ru: "Алюминий 5052 (Фрезеровка/Лист)" },
+                { density: 2.66, en: "Aluminum 5083", uk: "Алюміній 5083", ru: "Алюминий 5083" },
+                { density: 2.78, en: "Aluminum 2024", uk: "Алюміній 2024", ru: "Алюминий 2024" },
+                { density: 2.71, en: "Aluminum A380 (Die Cast)", uk: "Алюміній A380 (Лиття)", ru: "Алюминий A380 (Литье)" },
+                { density: 2.74, en: "Aluminum ADC12 (Die Cast)", uk: "Алюміній ADC12 (Лиття)", ru: "Алюминий ADC12 (Литье)" },
+                { density: 2.67, en: "AlSi10Mg (Cast/3D Print)", uk: "AlSi10Mg (Ливарний/3D друк)", ru: "AlSi10Mg (Литье/3D печать)" },
+                { density: 6.60, en: "Zamak 3 (Zinc Die Cast)", uk: "Zamak 3 (Цинкове лиття)", ru: "Zamak 3 (Цинковое литье)" },
+                { density: 6.60, en: "Zamak 5 (Zinc Die Cast)", uk: "Zamak 5 (Цинкове лиття)", ru: "Zamak 5 (Цинковое литье)" },
+                { density: 7.85, en: "Steel A36 (Mild/Carbon)", uk: "Сталь A36 (Конструкційна)", ru: "Сталь A36 (Конструкционная)" },
+                { density: 7.93, en: "Stainless Steel 304", uk: "Нержавіюча сталь 304", ru: "Нержавеющая сталь 304" },
+                { density: 7.98, en: "Stainless Steel 316", uk: "Нержавіюча сталь 316", ru: "Нержавеющая сталь 316" },
+                { density: 7.85, en: "Steel 4140 (Chromoly)", uk: "Сталь 4140 (Хромомолібденова)", ru: "Сталь 4140 (Хромомолибденовая)" },
+                { density: 7.70, en: "Tool Steel D2", uk: "Інструментальна сталь D2", ru: "Инструментальная сталь D2" },
+                { density: 7.80, en: "Tool Steel H13", uk: "Інструментальна сталь H13", ru: "Инструментальная сталь H13" },
+                { density: 7.15, en: "Cast Iron (Grey)", uk: "Сірий чавун", ru: "Серый чугун" },
+                { density: 7.10, en: "Cast Iron (Ductile)", uk: "Високоміцний чавун", ru: "Высокопрочный чугун" },
+                { density: 8.50, en: "Brass C360", uk: "Латунь C360", ru: "Латунь C360" },
+                { density: 8.93, en: "Bronze C932 (Bearing)", uk: "Бронза C932 (Підшипникова)", ru: "Бронза C932 (Подшипниковая)" },
+                { density: 8.25, en: "Beryllium Copper", uk: "Берилієва мідь (Бронза)", ru: "Бериллиевая медь (Бронза)" },
+                { density: 1.77, en: "Magnesium AZ31B", uk: "Магній AZ31B", ru: "Магний AZ31B" },
+                { density: 1.81, en: "Magnesium AZ91D", uk: "Магній AZ91D", ru: "Магний AZ91D" },
+                { density: 1.80, en: "Magnesium AM60B (Die Cast)", uk: "Магній AM60B (Лиття)", ru: "Магний AM60B (Литье)" },
+                { density: 4.43, en: "Titanium Ti-6Al-4V (Grade 5)", uk: "Титан Ti-6Al-4V (Grade 5)", ru: "Титан Ti-6Al-4V (Grade 5)" },
+                { density: 8.19, en: "Inconel 718", uk: "Інконель 718", ru: "Инконель 718" },
+                { density: 8.44, en: "Inconel 625", uk: "Інконель 625", ru: "Инконель 625" }
+            ],
+            wood: [
+                { density: 0.75, en: "MDF", uk: "МДФ", ru: "МДФ" },
+                { density: 0.60, en: "Plywood", uk: "Фанера", ru: "Фанера" },
+                { density: 0.70, en: "Oak", uk: "Дуб", ru: "Дуб" },
+                { density: 0.50, en: "Pine", uk: "Сосна", ru: "Сосна" },
+                { density: 0.68, en: "Ash", uk: "Ясен", ru: "Ясень" },
+                { density: 0.72, en: "Beech", uk: "Бук", ru: "Бук" },
+                { density: 0.64, en: "Walnut", uk: "Горіх", ru: "Орех" },
+                { density: 0.56, en: "Cherry", uk: "Вишня", ru: "Вишня" },
+                { density: 0.65, en: "Mahogany", uk: "Махагоні", ru: "Махагони" },
+                { density: 0.65, en: "Birch", uk: "Береза", ru: "Береза" },
+                { density: 0.68, en: "Maple", uk: "Клен", ru: "Клен" },
+                { density: 0.65, en: "Teak", uk: "Тик", ru: "Тик" },
+                { density: 0.53, en: "Alder", uk: "Вільха", ru: "Ольха" },
+                { density: 0.45, en: "Spruce", uk: "Ялина", ru: "Ель" },
+                { density: 1.10, en: "Ebony", uk: "Ебенове дерево", ru: "Эбеновое дерево" },
+                { density: 0.88, en: "Wenge", uk: "Венге", ru: "Венге" },
+                { density: 0.80, en: "Zebrawood", uk: "Зебрано", ru: "Зебрано" },
+                { density: 0.85, en: "Rosewood", uk: "Палісандр", ru: "Палисандр" },
+                { density: 0.15, en: "Balsa", uk: "Бальса", ru: "Бальса" },
+                { density: 1.25, en: "Lignum Vitae", uk: "Бакаут (Гваяк)", ru: "Бакаут (Гваяк)" },
+                { density: 0.86, en: "Purpleheart", uk: "Амарант", ru: "Амарант" },
+                { density: 0.80, en: "Merbau", uk: "Мербау", ru: "Мербау" },
+                { density: 1.05, en: "Bocote", uk: "Бокоте", ru: "Бокоте" },
+                { density: 0.66, en: "Iroko", uk: "Іроко", ru: "Ироко" }
+            ],
+            precious: [
+                { density: 19.32, en: "24K Gold (999)", uk: "Золото 24K (999)", ru: "Золото 24K (999)" },
+                { density: 17.75, en: "22K Gold (916)", uk: "Золото 22K (916)", ru: "Золото 22K (916)" },
+                { density: 15.50, en: "18K Yellow Gold (750)", uk: "Золото 18K (750) Жовте", ru: "Золото 18K (750) Желтое" },
+                { density: 15.60, en: "18K White Gold (750)", uk: "Золото 18K (750) Біле", ru: "Золото 18K (750) Белое" },
+                { density: 15.20, en: "18K Rose Gold (750)", uk: "Золото 18K (750) Рожеве", ru: "Золото 18K (750) Розовое" },
+                { density: 13.30, en: "14K Yellow Gold (585)", uk: "Золото 14K (585) Жовте", ru: "Золото 14K (585) Желтое" },
+                { density: 12.80, en: "14K White Gold (585)", uk: "Золото 14K (585) Біле", ru: "Золото 14K (585) Белое" },
+                { density: 13.00, en: "14K Rose Gold (585)", uk: "Золото 14K (585) Рожеве", ru: "Золото 14K (585) Розовое" },
+                { density: 11.40, en: "9K Gold (375)", uk: "Золото 9K (375)", ru: "Золото 9K (375)" },
+                { density: 10.49, en: "Pure Silver (999)", uk: "Срібло (999) чисте", ru: "Серебро (999) чистое" },
+                { density: 10.36, en: "Sterling Silver (925)", uk: "Срібло (925) стерлінгове", ru: "Серебро (925) стерлинговое" },
+                { density: 20.60, en: "Platinum (950)", uk: "Платина (950)", ru: "Платина (950)" },
+                { density: 11.80, en: "Palladium (950)", uk: "Паладій (950)", ru: "Палладий (950)" }
+            ]
+        };
+
+        // --- STATE & DOM ---
+        let currentVolumeMm3 = 0, currentDensity = 1.24, currentCategory = 'plastics';
+        let isPreviewEnabled = false; 
+        let isWireframeEnabled = false; 
+        let currentZoom = 1.0; // Текущий уровень зума
+        
+        const dropZone = document.getElementById('drop-zone'), fileInput = document.getElementById('file-input'), loader = document.getElementById('loader'), fileInfoPanel = document.getElementById('file-info'), uiFilename = document.getElementById('ui-filename'), uiFilesize = document.getElementById('ui-filesize'), uiObjects = document.getElementById('ui-objects'), uiTriangles = document.getElementById('ui-triangles'), uiBounds = document.getElementById('ui-bounds'), valVolumeMm = document.getElementById('val-volume-mm'), valVolumeCm = document.getElementById('val-volume-cm'), valWeight = document.getElementById('val-weight'), categoryBtns = document.querySelectorAll('.category-btn'), matSelect = document.getElementById('material-type'), customDensGroup = document.getElementById('custom-density-group'), customDensInput = document.getElementById('custom-density'), matSelectGroup = document.getElementById('material-select-group'), densityDisplay = document.getElementById('density-display'), canvas = document.getElementById('glcanvas'), placeholder = document.getElementById('viewer-placeholder');
+        const previewToggle = document.getElementById('preview-toggle'), iconEye = document.getElementById('icon-eye'), iconEyeOff = document.getElementById('icon-eye-off'), placeholderText = document.getElementById('placeholder-text');
+        const wireframeToggle = document.getElementById('wireframe-toggle');
+        const zoomSlider = document.getElementById('zoom-slider');
+
+        function initUI() {
+            document.getElementById('btn-en').onclick = () => setLanguage('en');
+            document.getElementById('btn-uk').onclick = () => setLanguage('uk');
+            document.getElementById('btn-ru').onclick = () => setLanguage('ru');
+            
+            previewToggle.onclick = togglePreview;
+            wireframeToggle.onclick = toggleWireframe;
+            
+            zoomSlider.addEventListener('input', e => {
+                currentZoom = parseFloat(e.target.value);
+            });
+            
+            categoryBtns.forEach(btn => btn.onclick = function() { categoryBtns.forEach(b => b.classList.remove('active')); this.classList.add('active'); currentCategory = this.dataset.cat; updateMaterialOptions(); });
+            matSelect.onchange = updateCalculations;
+            customDensInput.oninput = updateCalculations;
+            dropZone.onclick = () => fileInput.click();
+            dropZone.ondragover = e => { e.preventDefault(); dropZone.classList.add('dragover'); };
+            dropZone.ondragleave = () => dropZone.classList.remove('dragover');
+            dropZone.ondrop = e => { e.preventDefault(); dropZone.classList.remove('dragover'); if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); };
+            fileInput.onchange = e => { if (e.target.files.length) handleFile(e.target.files[0]); };
+            setLanguage('en'); initWebGL();
+        }
+
+        // --- ЛОГИКА ПРЕВЬЮ ---
+        function togglePreview() {
+            isPreviewEnabled = !isPreviewEnabled;
+            previewToggle.classList.toggle('active', isPreviewEnabled);
+            if (isPreviewEnabled) {
+                iconEye.style.display = 'block';
+                iconEyeOff.style.display = 'none';
+                if (vertexCount > 0) {
+                    placeholder.style.display = 'none';
+                    canvas.style.display = 'block';
+                    if (!animFrame) draw();
+                } else {
+                    placeholderText.setAttribute('data-i18n', 'viewerText');
+                    placeholderText.innerHTML = i18n[currentLang].viewerText;
+                }
+            } else {
+                iconEye.style.display = 'none';
+                iconEyeOff.style.display = 'block';
+                canvas.style.display = 'none';
+                placeholder.style.display = 'flex';
+                placeholderText.setAttribute('data-i18n', 'previewOff');
+                placeholderText.innerHTML = i18n[currentLang].previewOff;
+                if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+            }
+        }
+
+        function toggleWireframe() {
+            isWireframeEnabled = !isWireframeEnabled;
+            wireframeToggle.classList.toggle('active', isWireframeEnabled);
+        }
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+            document.getElementById('btn-uk').classList.toggle('active', lang === 'uk');
+            document.getElementById('btn-ru').classList.toggle('active', lang === 'ru');
+            
+            // Обновление текстовых элементов
+            document.querySelectorAll('[data-i18n]').forEach(el => { const key = el.getAttribute('data-i18n'); if (i18n[lang][key]) el.innerHTML = i18n[lang][key]; });
+            
+            // Обновление всплывающих подсказок (title)
+            document.querySelectorAll('[data-i18n-title]').forEach(el => { const key = el.getAttribute('data-i18n-title'); if (i18n[lang][key]) el.title = i18n[lang][key]; });
+            
+            updateMaterialOptions();
+        }
+
+        function updateMaterialOptions() {
+            if (currentCategory === 'custom') { matSelectGroup.style.display = 'none'; customDensGroup.style.display = 'block'; }
+            else {
+                matSelectGroup.style.display = 'block'; customDensGroup.style.display = 'none';
+                matSelect.innerHTML = '';
+                (materialsDB[currentCategory] || []).forEach(m => { const opt = document.createElement('option'); opt.value = m.density; opt.textContent = m[currentLang]; matSelect.appendChild(opt); });
+            }
+            updateCalculations();
+        }
+
+        function updateCalculations() {
+            currentDensity = currentCategory === 'custom' ? (parseFloat(customDensInput.value) || 0) : (parseFloat(matSelect.value) || 0);
+            densityDisplay.textContent = `${i18n[currentLang].densityPrefix} ${currentDensity} g/cm³`;
+            if (currentVolumeMm3 > 0) {
+                const volCm3 = currentVolumeMm3 / 1000;
+                const weightG = volCm3 * currentDensity;
+                const locale = currentLang === 'uk' ? 'uk-UA' : (currentLang === 'ru' ? 'ru-RU' : 'en-US');
+                const isCyrillic = currentLang === 'uk' || currentLang === 'ru';
+                
+                valVolumeMm.textContent = `${currentVolumeMm3.toLocaleString(locale)} ${isCyrillic ? 'мм³' : 'mm³'}`;
+                valVolumeCm.textContent = `${volCm3.toLocaleString(locale, {maximumFractionDigits:3})} ${isCyrillic ? 'см³' : 'cm³'}`;
+                valWeight.innerHTML = `${weightG.toLocaleString(locale, {maximumFractionDigits:2})} <span style='font-size:1.2rem; opacity:0.7;'>${isCyrillic ? 'г' : 'g'}</span>`;
+            }
+        }
+
+        function handleFile(file) {
+            if (!file.name.toLowerCase().endsWith('.stl')) { alert(i18n[currentLang].errNotStl); return; }
+            uiFilename.textContent = file.name;
+            uiFilesize.textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+            fileInfoPanel.style.display = 'flex';
+            loader.style.display = 'block'; dropZone.querySelectorAll('svg, .drop-text').forEach(el => el.style.display='none');
+            const reader = new FileReader();
+            reader.onload = e => { 
+                setTimeout(() => {
+                    try { processSTL(e.target.result); } 
+                    catch(err) { alert(i18n[currentLang].errRead); } 
+                    finally { loader.style.display = 'none'; dropZone.querySelectorAll('svg, .drop-text').forEach(el => el.style.display=''); } 
+                }, 50);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processSTL(buffer) {
+            const dv = new DataView(buffer);
+            const isBinary = buffer.byteLength > 84 && buffer.byteLength === 84 + dv.getUint32(80, true) * 50;
+            let vertices;
+            if (isBinary) {
+                const count = dv.getUint32(80, true); vertices = new Float32Array(count * 9);
+                for (let i = 0, off = 84; i < count; i++, off += 50) { for (let j = 0; j < 9; j++) vertices[i * 9 + j] = dv.getFloat32(off + 12 + j * 4, true); }
+            } else {
+                const text = new TextDecoder().decode(buffer), pts = [];
+                const regex = /vertex\s+([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)/g;
+                let m; while(m = regex.exec(text)) pts.push(parseFloat(m[1]), parseFloat(m[2]), parseFloat(m[3]));
+                vertices = new Float32Array(pts);
+            }
+            uiTriangles.textContent = (vertices.length / 9).toLocaleString();
+            calculateProps(vertices); renderModel(vertices);
+        }
+
+        function calculateProps(verts) {
+            let min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
+            
+            for (let i = 0; i < verts.length; i += 3) {
+                for (let j = 0; j < 3; j++) {
+                    min[j] = Math.min(min[j], verts[i+j]);
+                    max[j] = Math.max(max[j], verts[i+j]);
+                }
+            }
+
+            let objectCount = 1;
+            let finalVolume = 0;
+
+            if (verts.length / 9 <= 1000000) {
+                const vertexMap = new Map();
+                let vCount = 0;
+                const faces = new Int32Array(verts.length / 3);
+                
+                for (let i = 0; i < verts.length; i += 3) {
+                    const key = Math.round(verts[i]*1000) + "_" + Math.round(verts[i+1]*1000) + "_" + Math.round(verts[i+2]*1000);
+                    let vid = vertexMap.get(key);
+                    if (vid === undefined) { vid = vCount++; vertexMap.set(key, vid); }
+                    faces[i/3] = vid;
+                }
+
+                const parent = new Int32Array(vCount);
+                for(let i=0; i<vCount; i++) parent[i] = i;
+                
+                function find(i) {
+                    let root = i;
+                    while (root !== parent[root]) root = parent[root];
+                    let curr = i;
+                    while (curr !== root) { let nxt = parent[curr]; parent[curr] = root; curr = nxt; }
+                    return root;
+                }
+
+                for (let i = 0; i < faces.length; i += 3) {
+                    let r1 = find(faces[i]), r2 = find(faces[i+1]), r3 = find(faces[i+2]);
+                    if (r1 !== r2) parent[r2] = r1;
+                    let newR1 = find(r1);
+                    if (newR1 !== r3) parent[find(r3)] = newR1;
+                }
+
+                const compVols = new Float64Array(vCount);
+                for (let i = 0; i < verts.length; i += 9) {
+                    const p1 = [verts[i], verts[i+1], verts[i+2]], p2 = [verts[i+3], verts[i+4], verts[i+5]], p3 = [verts[i+6], verts[i+7], verts[i+8]];
+                    let vSigned = (-p3[0]*p2[1]*p1[2] + p2[0]*p3[1]*p1[2] + p3[0]*p1[1]*p2[2] - p1[0]*p3[1]*p2[2] - p2[0]*p1[1]*p3[2] + p1[0]*p2[1]*p3[2]) / 6;
+                    compVols[find(faces[i/3])] += vSigned;
+                }
+
+                objectCount = 0;
+                for (let i = 0; i < vCount; i++) {
+                    if (parent[i] === i) {
+                        let vol = Math.abs(compVols[i]);
+                        if (vol > 0.0001) { objectCount++; finalVolume += vol; }
+                    }
+                }
+                if (objectCount === 0) objectCount = 1;
+            } else {
+                let rawVol = 0;
+                for (let i = 0; i < verts.length; i += 9) {
+                    const p1 = [verts[i], verts[i+1], verts[i+2]], p2 = [verts[i+3], verts[i+4], verts[i+5]], p3 = [verts[i+6], verts[i+7], verts[i+8]];
+                    rawVol += (-p3[0]*p2[1]*p1[2] + p2[0]*p3[1]*p1[2] + p3[0]*p1[1]*p2[2] - p1[0]*p3[1]*p2[2] - p2[0]*p1[1]*p3[2] + p1[0]*p2[1]*p3[2]) / 6;
+                }
+                finalVolume = Math.abs(rawVol);
+                objectCount = currentLang === 'ru' ? ">1 (Файл огромен)" : (currentLang === 'uk' ? ">1 (Файл завеликий)" : ">1 (Massive File)");
+            }
+
+            currentVolumeMm3 = finalVolume;
+            uiObjects.textContent = objectCount;
+            uiBounds.textContent = `${(max[0]-min[0]).toFixed(1)} x ${(max[1]-min[1]).toFixed(1)} x ${(max[2]-min[2]).toFixed(1)} mm`;
+            meshCenter = min.map((v, i) => (v + max[i]) / 2); meshSize = Math.max(...max.map((v, i) => v - min[i]));
+            updateCalculations();
+        }
+
+        // --- WEBGL ENGINE ---
+        let gl, shaderProgram, positionBuffer, normalBuffer, vertexCount = 0, meshCenter = [0,0,0], meshSize = 100, isDragging = false, prevM = {x:0, y:0}, rot = {x:0, y:0};
+        let wireframeBuffer = null, wireframeVertexCount = 0;
+        let animFrame = null; 
+
+        function initWebGL() {
+            gl = canvas.getContext('webgl'); if (!gl) return;
+            const res = () => { canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight; gl.viewport(0,0,canvas.width,canvas.height); };
+            window.onresize = res; res();
+            const vs = gl.createShader(gl.VERTEX_SHADER); gl.shaderSource(vs, `attribute vec4 p; attribute vec3 n; uniform mat4 m, pr, nm; varying vec3 l; void main(){ gl_Position=pr*m*p; vec3 d=normalize(vec3(0.8,0.8,0.5)); vec4 t=nm*vec4(n,1.0); l=vec3(0.1,0.15,0.2)+vec3(0.02,0.7,0.8)*max(dot(t.xyz,d),0.0); }`); gl.compileShader(vs);
+            const fs = gl.createShader(gl.FRAGMENT_SHADER); gl.shaderSource(fs, `uniform bool uWf; varying highp vec3 l; void main(){ if(uWf){gl_FragColor=vec4(1.0,1.0,1.0,0.15);}else{gl_FragColor=vec4(l,1.0);} }`); gl.compileShader(fs);
+            shaderProgram = gl.createProgram(); gl.attachShader(shaderProgram, vs); gl.attachShader(shaderProgram, fs); gl.linkProgram(shaderProgram); gl.useProgram(shaderProgram);
+            canvas.onmousedown = e => { isDragging = true; prevM = {x:e.offsetX, y:e.offsetY}; };
+            window.onmouseup = () => isDragging = false;
+            window.onmousemove = e => { if (isDragging) { rot.y += (e.offsetX - prevM.x)*0.01; rot.x += (e.offsetY - prevM.y)*0.01; prevM = {x:e.offsetX, y:e.offsetY}; } };
+            
+            // Обработка колесика мыши для зума
+            canvas.addEventListener('wheel', e => {
+                if (!isPreviewEnabled) return;
+                e.preventDefault(); // Блокируем прокрутку страницы
+                currentZoom -= e.deltaY * 0.002;
+                // Изменено минимальное значение с 0.2 на 0.5
+                currentZoom = Math.max(0.5, Math.min(currentZoom, 5.0)); // Ограничения зума
+                zoomSlider.value = currentZoom;
+            }, { passive: false });
+        }
+        function renderModel(verts) {
+            vertexCount = verts.length / 3;
+            const norms = new Float32Array(verts.length);
+            for(let i=0; i<verts.length; i+=9){
+                const u = [verts[i+3]-verts[i], verts[i+4]-verts[i+1], verts[i+5]-verts[i+2]], v = [verts[i+6]-verts[i], verts[i+7]-verts[i+1], verts[i+8]-verts[i+2]];
+                const n = [u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0]], len = Math.sqrt(n[0]**2+n[1]**2+n[2]**2)||1;
+                for(let j=0; j<3; j++) for(let k=0; k<3; k++) norms[i+j*3+k] = n[k]/len;
+            }
+            
+            const wfVerts = new Float32Array((verts.length / 9) * 18);
+            let widx = 0;
+            for(let i=0; i<verts.length; i+=9){
+                wfVerts[widx++]=verts[i]; wfVerts[widx++]=verts[i+1]; wfVerts[widx++]=verts[i+2];
+                wfVerts[widx++]=verts[i+3]; wfVerts[widx++]=verts[i+4]; wfVerts[widx++]=verts[i+5];
+                wfVerts[widx++]=verts[i+3]; wfVerts[widx++]=verts[i+4]; wfVerts[widx++]=verts[i+5];
+                wfVerts[widx++]=verts[i+6]; wfVerts[widx++]=verts[i+7]; wfVerts[widx++]=verts[i+8];
+                wfVerts[widx++]=verts[i+6]; wfVerts[widx++]=verts[i+7]; wfVerts[widx++]=verts[i+8];
+                wfVerts[widx++]=verts[i]; wfVerts[widx++]=verts[i+1]; wfVerts[widx++]=verts[i+2];
+            }
+            wireframeVertexCount = wfVerts.length / 3;
+            wireframeBuffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, wireframeBuffer); gl.bufferData(gl.ARRAY_BUFFER, wfVerts, gl.STATIC_DRAW);
+
+            positionBuffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer); gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+            normalBuffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer); gl.bufferData(gl.ARRAY_BUFFER, norms, gl.STATIC_DRAW);
+            rot = {x:0, y:0}; 
+            
+            // Сбрасываем зум при загрузке новой модели
+            currentZoom = 1.0;
+            zoomSlider.value = currentZoom;
+            
+            if (isPreviewEnabled) {
+                placeholder.style.display = 'none';
+                canvas.style.display = 'block';
+                if (animFrame) cancelAnimationFrame(animFrame);
+                draw();
+            } else {
+                canvas.style.display = 'none';
+                placeholder.style.display = 'flex';
+                placeholderText.setAttribute('data-i18n', 'previewOff');
+                placeholderText.innerHTML = i18n[currentLang].previewOff;
+            }
+        }
+        function draw() {
+            if (!vertexCount || !isPreviewEnabled) return; 
+            
+            if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
+                canvas.width = canvas.clientWidth;
+                canvas.height = canvas.clientHeight;
+                gl.viewport(0, 0, canvas.width, canvas.height);
+            }
+
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST);
+            gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+            
+            const aspect = canvas.width / canvas.height || 1; 
+            const pr = new Float32Array([2.4 / aspect, 0, 0, 0, 0, 2.4, 0, 0, 0, 0, -1.0002, -1, 0, 0, -0.2, 0]);
+            
+            // Применяем текущий зум к матрице смещения камеры (base distance * 1.8 for perfect fit)
+            let cameraZ = (meshSize * 1.8) / currentZoom;
+            
+            let mv = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,-cameraZ,1]), nm = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]);
+            const rx = (m, a) => { const c=Math.cos(a), s=Math.sin(a), t=new Float32Array(m); m[4]=t[4]*c+t[8]*s; m[5]=t[5]*c+t[9]*s; m[6]=t[6]*c+t[10]*s; m[8]=t[8]*c-t[4]*s; m[9]=t[9]*c-t[5]*s; m[10]=t[10]*c-t[6]*s; };
+            const ry = (m, a) => { const c=Math.cos(a), s=Math.sin(a), t=new Float32Array(m); m[0]=t[0]*c-t[8]*s; m[1]=t[1]*c-t[9]*s; m[2]=t[2]*c-t[10]*s; m[8]=t[0]*s+t[8]*c; m[9]=t[1]*s+t[9]*c; m[10]=t[2]*s+t[10]*c; };
+            rx(mv, rot.x); ry(mv, rot.y); rx(nm, rot.x); ry(nm, rot.y);
+            mv[12] += mv[0]*-meshCenter[0]+mv[4]*-meshCenter[1]+mv[8]*-meshCenter[2]; mv[13] += mv[1]*-meshCenter[0]+mv[5]*-meshCenter[1]+mv[9]*-meshCenter[2]; mv[14] += mv[2]*-meshCenter[0]+mv[6]*-meshCenter[1]+mv[10]*-meshCenter[2];
+            
+            gl.uniformMatrix4fv(gl.getUniformLocation(shaderProgram, 'pr'), false, pr); 
+            gl.uniformMatrix4fv(gl.getUniformLocation(shaderProgram, 'm'), false, mv); 
+            gl.uniformMatrix4fv(gl.getUniformLocation(shaderProgram, 'nm'), false, nm);
+
+            gl.enable(gl.POLYGON_OFFSET_FILL);
+            gl.polygonOffset(1.0, 1.0);
+            gl.uniform1i(gl.getUniformLocation(shaderProgram, 'uWf'), 0);
+
+            const pA = gl.getAttribLocation(shaderProgram, 'p'); gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer); gl.vertexAttribPointer(pA, 3, gl.FLOAT, false, 0, 0); gl.enableVertexAttribArray(pA);
+            const nA = gl.getAttribLocation(shaderProgram, 'n'); gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer); gl.vertexAttribPointer(nA, 3, gl.FLOAT, false, 0, 0); gl.enableVertexAttribArray(nA);
+            
+            gl.drawArrays(gl.TRIANGLES, 0, vertexCount); 
+            gl.disable(gl.POLYGON_OFFSET_FILL);
+
+            if (isWireframeEnabled && wireframeBuffer) {
+                gl.uniform1i(gl.getUniformLocation(shaderProgram, 'uWf'), 1);
+                gl.bindBuffer(gl.ARRAY_BUFFER, wireframeBuffer);
+                gl.vertexAttribPointer(pA, 3, gl.FLOAT, false, 0, 0);
+                gl.drawArrays(gl.LINES, 0, wireframeVertexCount);
+            }
+
+            if(!isDragging) rot.y += 0.005; 
+            
+            animFrame = requestAnimationFrame(draw);
+        }
+        window.onload = initUI;
+    </script>
+</body>
+</html>
